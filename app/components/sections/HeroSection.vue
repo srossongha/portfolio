@@ -7,8 +7,8 @@ import { profile } from '~/data/site'
  * The hero.
  *
  * Layering, back to front:
- *   1. HeroCanvas — the WebGL blob and particle field
- *   2. A grid + radial vignette, to give the type something to sit on
+ *   1. Ambient glow orbs + technical hairline grid
+ *   2. Soft radial vignette for crisp typography contrast
  *   3. The text, in normal document flow
  *
  * The intro animation waits for the preloader to hand over (`isReady`), then
@@ -101,76 +101,26 @@ onUnmounted(() => introCtx?.revert())
     ref="root"
     class="relative flex min-h-svh items-center overflow-hidden"
   >
-    <!-- ------------------------------------------------------ 3D backdrop -->
-    <!--
-      TWO WRAPPERS, TWO DIFFERENT JOBS:
+    <!-- -------------------------------------------------- ambient backdrop -->
+    <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+      <div
+        class="absolute -top-[15%] right-[5%] size-[min(70vw,40rem)] rounded-full opacity-60 blur-3xl"
+        style="background: radial-gradient(circle, var(--brand-soft), transparent 70%)"
+      />
+      <div
+        class="absolute bottom-[10%] left-[5%] size-[min(50vw,28rem)] rounded-full opacity-35 blur-3xl"
+        style="background: radial-gradient(circle, color-mix(in oklch, var(--brand) 25%, transparent), transparent 70%)"
+      />
+    </div>
 
-      <ClientOnly> — skips this during server rendering. WebGL does not exist in
-      Node, so rendering it on the server would crash the build.
+    <!-- Hairline grid, faded towards edges -->
+    <div class="bg-grid mask-radial-fade pointer-events-none absolute inset-0 opacity-45" aria-hidden="true" />
 
-      Lazy prefix — Nuxt turns `<LazyHeroCanvas>` into an async component, which
-      splits three.js (~800 kB) into its own chunk fetched AFTER hydration
-      instead of blocking the first paint. The preloader is covering the screen
-      while that download happens, so nobody sees the difference.
-
-      The fallback below is a matching CSS gradient, so there is never a flash
-      of empty space.
-    -->
-    <ClientOnly>
-      <LazyHeroCanvas />
-      <template #fallback>
-        <div class="absolute inset-0 flex items-center justify-center" aria-hidden="true">
-          <div
-            class="size-[min(60vw,32rem)] rounded-full opacity-70 blur-3xl"
-            style="background: radial-gradient(circle, var(--brand-soft), transparent 70%)"
-          />
-        </div>
-      </template>
-    </ClientOnly>
-
-    <!-- Hairline grid, faded out towards the edges so it never looks like a
-         table. Sits above the canvas but below the text. -->
-    <div class="bg-grid mask-radial-fade pointer-events-none absolute inset-0 opacity-60" aria-hidden="true" />
-
-    <!-- A soft vignette guarantees the headline stays readable no matter what
-         colour the blob happens to be behind it. -->
+    <!-- Soft vignette to keep text contrast crisp -->
     <div
       class="pointer-events-none absolute inset-0"
       aria-hidden="true"
-      style="background: radial-gradient(ellipse 80% 60% at 50% 45%, transparent 30%, var(--background) 92%)"
-    />
-
-    <!-- Mobile only: the blob sits above the copy, so we fade the bottom two
-         thirds to solid background. Text contrast is not negotiable, and a
-         phone has no room to place the object beside the words. -->
-    <div
-      class="pointer-events-none absolute inset-0 md:hidden"
-      aria-hidden="true"
-      style="background: linear-gradient(to bottom, transparent 12%, color-mix(in oklch, var(--background) 82%, transparent) 32%, var(--background) 52%)"
-    />
-
-    <!--
-      Desktop: a left-to-right scrim guaranteeing the headline always sits on
-      clean background, whatever the 3D happens to be doing behind it.
-
-      The album ring orbits, so the bright side of it sweeps across the text
-      zone once per revolution — tuning the ring's radius can reduce that but
-      never rules it out. A scrim makes legibility structural instead of a
-      lucky coincidence. It also doubles as atmospheric perspective: the far
-      side of the ring dims, which reads as depth rather than as a mask.
-    -->
-    <div
-      class="pointer-events-none absolute inset-0 hidden md:block"
-      aria-hidden="true"
-      style="
-        background: linear-gradient(
-          100deg,
-          var(--background) 0%,
-          var(--background) 26%,
-          color-mix(in oklch, var(--background) 72%, transparent) 46%,
-          transparent 68%
-        );
-      "
+      style="background: radial-gradient(ellipse 85% 65% at 50% 45%, transparent 30%, var(--background) 95%)"
     />
 
     <!-- ------------------------------------------------------------ text -->

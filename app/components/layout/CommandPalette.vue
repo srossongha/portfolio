@@ -10,7 +10,7 @@ import {
   User,
 } from '@lucide/vue'
 import type { Component } from 'vue'
-import { navLinks, projects, socials } from '~/data/site'
+import { navLinks, profile, projects, socials } from '~/data/site'
 
 /**
  * A ⌘K command palette — the keyboard-first navigation power users expect.
@@ -82,7 +82,6 @@ const sectionIcons: Record<string, Component> = {
   work: FileText,
   about: User,
   skills: Beaker,
-  lab: Beaker,
   contact: Mail,
 }
 </script>

@@ -132,7 +132,7 @@ watch(() => useRoute().fullPath, () => (mobileOpen.value = false))
         </ul>
 
         <!-- ------------------------------------------------------- actions -->
-        <div class="flex items-center gap-1">
+        <div class="flex items-center gap-1.5 sm:gap-2">
           <!-- Command palette trigger. The ⌘K hint tells people the shortcut
                exists — a palette nobody knows about is wasted work. -->
           <Button
@@ -232,7 +232,7 @@ watch(() => useRoute().fullPath, () => (mobileOpen.value = false))
                pinned near the bottom of the screen ends up with the indicator
                bar sitting across it. `pb-safe` adds the inset on top of the
                2.5rem design padding, and resolves to just 2.5rem elsewhere. -->
-          <div class="gutter pb-safe" style="--pb-safe: 2.5rem">
+          <div class="gutter pb-safe flex flex-col gap-3" style="--pb-safe: 2.5rem">
             <Button
               variant="brand"
               size="pill"

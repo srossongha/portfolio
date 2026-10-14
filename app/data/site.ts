@@ -8,7 +8,6 @@
 
 import type {
   Experience,
-  LabItem,
   Project,
   SkillGroup,
   SocialLink,
@@ -21,18 +20,19 @@ export const profile = {
   /** Shown in the hero as two stacked lines. */
   firstName: 'Sros',
   lastName: 'Songha',
-  role: 'Software Engineering',
+  role: 'Front-end Developer',
   /** The one-liner under the big name. */
   tagline: 'I build interfaces that feel alive.',
   /** Two or three sentences for the About section. */
   bio: [
     'I am a Computer Science student at the Institute of Technology of Cambodia (ITC) and a front-end developer based in Phnom Penh. Most of my energy goes into Vue, Nuxt, and React — building interfaces, then rebuilding them once I understand why the first version was wrong.',
-    'Currently interning at T.O Group and previously at EKYC Solution Co., Ltd., turning designs into responsive UI, managing state, and connecting front-end applications to robust APIs and headless backends. Alongside that, I co-created sroknh (ស្រុកខ្ញុំ), a room-rental marketplace for Cambodia with Nuxt, Supabase, and Clerk, shipped live to production at sroknh.com.',
+    'Currently interning at T.O Group and previously at EKYC Solution Co., Ltd., turning designs into responsive UI, managing state, and connecting front-end applications to robust APIs and headless backends. Alongside that, I co-created Roomie (ស្រុកខ្ញុំ), a room-rental marketplace for Cambodia with Nuxt, Supabase, and Clerk, shipped live to production at sroknh.com.',
     'I care deeply about the details: a loading state that respects user time, a layout that survives a 320px phone screen, and motion that communicates meaning instead of mere decoration. Still young, still learning, and always eager to build with real teams.',
   ],
   location: 'Phnom Penh · UTC+7',
   availability: 'Open to new work',
   email: 'sanghakh122333@gmail.com',
+  cvUrl: '/cv.pdf',
   /** Numbers in the hero strip. `suffix` is appended after the counter. */
   stats: [
     { value: 13, suffix: '+', label: 'Public repos' },
@@ -54,14 +54,14 @@ export const socials: SocialLink[] = [
 export const projects: Project[] = [
   {
     slug: 'roomie',
-    title: 'sroknh (ស្រុកខ្ញុំ)',
+    title: 'Roomie (ស្រុកខ្ញុំ)',
     tagline: 'A room-rental marketplace for Cambodia built on Nuxt.',
     description:
-      'A room-rental platform built for Cambodia: search with live filters, saved listings, host onboarding, and English/Khmer bilingual support. Built with Nuxt 4, Vue 3, Supabase, and Clerk, shipped to production on Cloudflare Pages.',
+      'A room-rental platform built for Cambodia: search with live filters, saved listings, host onboarding, scientific calculator, and English/Khmer bilingual support. Built with Nuxt 4, Vue 3, Supabase, and Clerk, shipped to production on Cloudflare Pages.',
     year: '2026',
-    role: 'Design & full-stack build',
-    stack: ['Nuxt 4', 'Vue 3', 'TypeScript', 'Supabase', 'Clerk', 'Nuxt i18n'],
-    tags: ['Product', 'Full-stack'],
+    role: 'Front-end build — UI, profile edit, listing location & calculator',
+    stack: ['Nuxt 4', 'Vue 3', 'TypeScript', 'shadcn-vue', 'Pinia', 'Supabase', 'Clerk', 'Cloudflare Pages'],
+    tags: ['Product', 'Full-stack', 'Vue/Nuxt'],
     links: [
       { label: 'Live site', href: 'https://sroknh.com', icon: 'external' },
       { label: 'Case study', href: '/work/roomie', icon: 'docs' },
@@ -71,7 +71,7 @@ export const projects: Project[] = [
       'Designed and engineered responsive listing discovery, profile view/edit flows, and listing location mapping.',
       'Implemented a custom scientific calculator feature directly integrated into the platform.',
       'Integrated shadcn-vue components with Pinia reactive state for fluid user interactions.',
-      'Auth secured with Clerk and real-time database managed on Supabase, deployed on vercel.',
+      'Auth secured with Clerk and real-time database managed on Supabase, deployed on Cloudflare Pages.',
     ],
     metrics: [
       { value: '2', label: 'Languages (KH/EN)' },
@@ -207,7 +207,10 @@ export const projects: Project[] = [
     role: 'Creative coding',
     stack: ['CSS', 'Keyframes', 'HTML'],
     tags: ['Creative', 'Experiment'],
-    links: [{ label: 'Source', href: 'https://github.com/songha7', icon: 'github' }],
+    links: [
+      { label: 'Source', href: 'https://github.com/srossongha/sakura', icon: 'github' },
+      { label: 'Case study', href: '/work/sakura', icon: 'docs' },
+    ],
     highlights: [
       'Petals drawn with a single radial-gradient and an asymmetric border-radius.',
       'Bloom state toggles animation-play-state rather than swapping animations, so the motion never jumps.',
@@ -247,23 +250,23 @@ export const projects: Project[] = [
   {
     slug: 'this-site',
     title: 'This Portfolio',
-    tagline: 'WebGL, scroll choreography, and interactive engineering.',
+    tagline: 'Smooth scroll choreography, responsive typography, and clean design.',
     description:
-      'The site you are reading. A GLSL blob deforming to simplex noise, a Lenis scroll loop feeding GSAP ScrollTrigger, a horizontal showcase, pinned card stacks and a command palette — written to be read, with the reasoning left in the comments.',
+      'The site you are reading. Crafted with Nuxt 4, Vue 3, GSAP ScrollTrigger, Lenis smooth scrolling, Tailwind CSS, and shadcn-vue. Designed to showcase front-end engineering with clean typography, responsive layouts, and buttery animations.',
     year: '2026',
     role: 'Design & build',
-    stack: ['Nuxt 4', 'TresJS', 'GLSL', 'GSAP', 'Lenis', 'Tailwind v4', 'shadcn-vue'],
-    tags: ['Creative', 'Full-stack', 'Vue/Nuxt'],
+    stack: ['Nuxt 4', 'Vue 3', 'TypeScript', 'GSAP', 'Lenis', 'Tailwind v4', 'shadcn-vue'],
+    tags: ['Product', 'Full-stack', 'Vue/Nuxt'],
     links: [
       { label: 'Source', href: 'https://github.com/srossongha/portfolio', icon: 'github' },
       { label: 'Live site', href: 'https://portfolio.sanghakh122333.workers.dev/', icon: 'external' },
       { label: 'Case study', href: '/work/this-site', icon: 'docs' },
     ],
     highlights: [
-      'One Lenis instance drives scrolling and hands its position to ScrollTrigger, so JS scroll and pinning stay in lockstep.',
-      'The hero blob is a custom vertex shader displacing an icosahedron with 3D simplex noise, lit by a fresnel rim in the fragment shader.',
-      'Sections scroll on four different axes — vertical, horizontal, skewed and depth-based.',
-      'Every animation checks prefers-reduced-motion before it starts.',
+      'One Lenis instance drives smooth scrolling and hands its position to ScrollTrigger for synchronized pinning.',
+      'Sections choreograph along multiple scroll axes — vertical, horizontal card showcase, and pinned depth cards.',
+      'Command palette (⌘K) built with accessible dialog primitives and keyboard navigation.',
+      'Accessibility first: every animation honors prefers-reduced-motion.',
     ],
     accent: ['oklch(0.8 0.14 78)', 'oklch(0.6 0.16 30)'],
     featured: true,
@@ -278,22 +281,23 @@ export const skillGroups: SkillGroup[] = [
     title: 'Front-end',
     summary: 'Where I spend most of my time. Components, state, and motion.',
     items: [
-      { name: 'Vue 3 / Nuxt', level: 55 },
-      { name: 'Tailwind CSS', level: 75 },
-      { name: 'TypeScript', level: 40 },
-      { name: 'Pinia / shadcn-vue', level: 45 },
-      { name: 'GSAP / Lenis', level: 10 },
+      { name: 'Vue 3 / Nuxt', level: 85 },
+      { name: 'Tailwind CSS', level: 90 },
+      { name: 'TypeScript / JS', level: 75 },
+      { name: 'Pinia / shadcn-vue', level: 80 },
+      { name: 'React / Next.js', level: 65 },
+      { name: 'GSAP / Lenis', level: 60 },
     ],
   },
   {
     title: 'Back-end & CMS',
     summary: 'APIs, headless CMS, and databases backing my interfaces.',
     items: [
-      { name: 'Nitro server routes', level: 40 },
-      { name: 'Postgres', level: 40 },
-      { name: 'Supabase / Neon', level: 35 },
-      { name: 'Prisma', level: 30 },
-      { name: 'Auth (Clerk)', level: 35 },
+      { name: 'Directus (Headless CMS)', level: 70 },
+      { name: 'Node.js / NestJS', level: 55 },
+      { name: 'PostgreSQL / MySQL', level: 65 },
+      { name: 'Supabase / Neon', level: 70 },
+      { name: 'Prisma & Clerk Auth', level: 70 },
     ],
   },
   {
@@ -308,13 +312,13 @@ export const skillGroups: SkillGroup[] = [
     ],
   },
   {
-    title: 'Learning',
-    summary: 'Coursework and things I am working through right now.',
+    title: 'Learning & Exploring',
+    summary: 'Coursework at ITC and technologies I am exploring right now.',
     items: [
-      { name: 'Python', level: 35 },
-      { name: 'OpenCV / MediaPipe', level: 20 },
-      { name: 'NumPy', level: 20 },
-      { name: 'Three.js / TresJS', level: 15 },
+      { name: 'C++ (CS Foundations)', level: 75 },
+      { name: 'Python (OpenCV & MediaPipe)', level: 65 },
+      { name: 'REST APIs & Integration', level: 70 },
+      { name: 'UI/UX Design Systems (Figma)', level: 75 },
     ],
   },
 ]
@@ -323,7 +327,7 @@ export const skillGroups: SkillGroup[] = [
 export const marqueeRows = [
   ['Nuxt 4', 'Vue 3', 'React', 'Next.js', 'TypeScript', 'Tailwind', 'Pinia', 'shadcn-vue'],
   ['PostgreSQL', 'MySQL', 'Directus', 'NestJS', 'Supabase', 'Neon', 'Prisma', 'Clerk'],
-  ['Python', 'MediaPipe', 'OpenCV', 'C++', 'Three.js', 'TresJS', 'GSAP', 'Lenis', 'Figma'],
+  ['Python', 'MediaPipe', 'OpenCV', 'C++', 'Vite', 'Git', 'GSAP', 'Lenis', 'Figma'],
 ]
 
 /* -------------------------------------------------------------- experience */
@@ -342,8 +346,8 @@ export const experiences: Experience[] = [
     role: 'Front-end Intern',
     organisation: 'EKYC Solution Co., Ltd.',
     description:
-      'Shipped marketplace and dashboard products on Nuxt. Introduced a typed component library, moved teams from ad-hoc CSS to a token-driven system, and cut first-paint times by moving data fetching to the server.',
-    tags: ['Nuxt', 'Design systems', 'SSR', 'Performance'],
+      'Engineered identity verification flows end-to-end: camera capture UX, liveness checks, and canvas-based live frame analysis (glare, blur, and boundary checks) using Vue 3, TypeScript, and WebRTC.',
+    tags: ['Vue 3', 'TypeScript', 'WebRTC', 'Canvas', 'Camera UX'],
   },
   {
     period: '2025 — Present',
@@ -358,43 +362,8 @@ export const experiences: Experience[] = [
     role: 'Perpetual Builder',
     organisation: 'Late nights & Open Source',
     description:
-      'Still young, still learning. Exploring 3D creative coding with Three.js & TresJS, computer vision experiments with Python & MediaPipe, and expanding from Vue/Nuxt into React & Next.js.',
-    tags: ['Three.js', 'TresJS', 'Python', 'React', 'Next.js'],
-  },
-]
-
-/* ------------------------------------------------------------- playground */
-
-export const labItems: LabItem[] = [
-  {
-    title: 'Noise fields',
-    description: 'Simplex noise driving vertex displacement on a subdivided sphere.',
-    kind: 'shader',
-  },
-  {
-    title: 'Particle drift',
-    description: 'Ten thousand points, one draw call, mouse-reactive flow.',
-    kind: 'particles',
-  },
-  {
-    title: 'Spring physics',
-    description: 'Stiffness and damping instead of durations and curves.',
-    kind: 'physics',
-  },
-  {
-    title: 'Kinetic type',
-    description: 'Per-character choreography driven by scroll velocity.',
-    kind: 'type',
-  },
-  {
-    title: 'Hand tracking',
-    description: '21 landmarks per hand, filters masked to the convex hull.',
-    kind: 'cv',
-  },
-  {
-    title: 'Audio reactive',
-    description: 'FFT bins mapped to geometry scale in real time.',
-    kind: 'audio',
+      'Still young, still learning. Focused on crafting delightful, responsive web experiences, computer vision experiments with Python & MediaPipe, and expanding from Vue/Nuxt into React & Next.js.',
+    tags: ['Vue 3', 'Nuxt', 'React', 'Next.js', 'Python'],
   },
 ]
 
@@ -404,7 +373,6 @@ export const navLinks = [
   { label: 'Work', to: '/#work', section: 'work' },
   { label: 'About', to: '/#about', section: 'about' },
   { label: 'Skills', to: '/#skills', section: 'skills' },
-  { label: 'Lab', to: '/playground', section: 'lab' },
   { label: 'Contact', to: '/#contact', section: 'contact' },
 ]
 
@@ -412,6 +380,6 @@ export const navLinks = [
 export const seo = {
   title: `${profile.name} — ${profile.role}`,
   description:
-    'Front-end developer from Cambodia studying at ITC. Building responsive web interfaces with Vue, Nuxt, React, and exploring full-stack & creative WebGL.',
+    'Front-end developer from Cambodia studying at ITC. Building responsive web interfaces with Vue, Nuxt, and React.',
   url: 'https://portfolio.sanghakh122333.workers.dev/',
 }

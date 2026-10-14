@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import gsap from 'gsap'
+import { Check, Download, Eye, FileText } from '@lucide/vue'
+import { toast } from 'vue-sonner'
 import { profile, socials } from '~/data/site'
 
 /**
@@ -17,6 +19,24 @@ import { profile, socials } from '~/data/site'
 
 const root = ref<HTMLElement | null>(null)
 const reduced = useReducedMotion()
+
+const isDownloaded = ref(false)
+let downloadTimer: ReturnType<typeof setTimeout> | undefined
+
+function handleDownload() {
+  isDownloaded.value = true
+  toast.success('Downloading Curriculum Vitae', {
+    description: 'SROS Songha.pdf · 337 KB',
+  })
+  if (downloadTimer) clearTimeout(downloadTimer)
+  downloadTimer = setTimeout(() => {
+    isDownloaded.value = false
+  }, 2800)
+}
+
+onUnmounted(() => {
+  if (downloadTimer) clearTimeout(downloadTimer)
+})
 
 /** The three short statements beside the portrait. */
 const principles = [
@@ -86,8 +106,66 @@ useGsapContext(root, () => {
             />
           </div>
 
-          <!-- Contact links -->
-          <RevealOnScroll :stagger="0.08" class="mt-12 flex flex-wrap gap-3">
+          <!-- CV Download card & actions -->
+          <div class="border-border/70 bg-card/40 hover:border-brand/40 mt-12 rounded-2xl border p-5 backdrop-blur-md transition-all sm:p-6">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div class="flex items-center gap-3.5">
+                <div class="bg-brand/10 border-brand/20 text-brand flex size-11 shrink-0 items-center justify-center rounded-xl border">
+                  <FileText class="size-5" />
+                </div>
+                <div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="font-serif text-base font-medium text-foreground sm:text-lg">Curriculum Vitae</span>
+                    <span class="border-brand/30 bg-brand/10 text-brand rounded-full border px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wider uppercase">
+                      PDF · 337 KB
+                    </span>
+                  </div>
+                  <p class="text-muted-foreground mt-0.5 text-xs">
+                    Skills, work experience, and educational background.
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2.5">
+                <a
+                  :href="profile.cvUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="border-border/70 hover:border-brand/50 hover:text-foreground text-muted-foreground inline-flex h-10 items-center gap-1.5 rounded-full border px-3.5 font-mono text-xs transition-colors"
+                  data-cursor-label="Preview"
+                  aria-label="Preview Sros Songha's CV in browser"
+                >
+                  <Eye class="size-3.5" />
+                  <span>Preview</span>
+                </a>
+
+                <MagneticWrap :strength="0.3">
+                  <Button
+                    variant="brand"
+                    size="sm"
+                    as="a"
+                    :href="profile.cvUrl"
+                    download="SROS Songha.pdf"
+                    target="_blank"
+                    class="h-10 gap-2 rounded-full px-5 font-medium shadow-sm transition-all"
+                    :data-cursor-label="isDownloaded ? 'Saved!' : 'Download'"
+                    aria-label="Download Sros Songha's Curriculum Vitae (PDF)"
+                    @click="handleDownload"
+                  >
+                    <component
+                      :is="isDownloaded ? Check : Download"
+                      class="size-4 transition-transform duration-300"
+                      :class="{ 'scale-110': isDownloaded }"
+                    />
+                    <span>{{ isDownloaded ? 'Downloaded!' : 'Download CV' }}</span>
+                  </Button>
+                </MagneticWrap>
+              </div>
+            </div>
+          </div>
+
+          <!-- Social links -->
+          <RevealOnScroll :stagger="0.08" class="mt-8 flex flex-wrap gap-2.5">
             <a
               v-for="social in socials"
               :key="social.href"

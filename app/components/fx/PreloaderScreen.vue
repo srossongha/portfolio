@@ -87,29 +87,29 @@ onMounted(async () => {
   const tl = gsap.timeline()
 
   // --- 1. Intro: brand mark, then the name rising out of its mask ----------
-  tl.from('.preloader-mark', { scale: 0.6, opacity: 0, duration: 0.8, ease: 'power3.out' })
+  tl.from('.preloader-mark', { scale: 0.6, opacity: 0, duration: 0.5, ease: 'power3.out' })
     .from(
       '.preloader-name .split-char',
-      { yPercent: 120, duration: 0.9, stagger: 0.045, ease: 'power4.out' },
-      '-=0.45',
+      { yPercent: 120, duration: 0.6, stagger: 0.03, ease: 'power4.out' },
+      '-=0.3',
     )
-    .from('.preloader-role', { opacity: 0, y: 14, duration: 0.6 }, '-=0.5')
+    .from('.preloader-role', { opacity: 0, y: 14, duration: 0.4 }, '-=0.3')
 
   // --- 2. Counter races to 90, then waits for reality ----------------------
   tl.to(
     counter,
     {
       value: 90,
-      duration: 1.6,
+      duration: 0.7,
       ease: 'power2.inOut',
       onUpdate: () => {
         progress.value = counter.value
       },
     },
-    0.2,
+    0.1,
   )
   // The growing rule under the counter is driven by the same progress value.
-  tl.to('.preloader-bar-fill', { scaleX: 0.9, duration: 1.6, ease: 'power2.inOut' }, 0.2)
+  tl.to('.preloader-bar-fill', { scaleX: 0.9, duration: 0.7, ease: 'power2.inOut' }, 0.1)
 
   await tl.then() // wait for the timeline above to play out
   await waitForRealWork() // ...and for fonts/assets to genuinely be ready
@@ -124,18 +124,18 @@ onMounted(async () => {
   outro
     .to(counter, {
       value: 100,
-      duration: 0.5,
+      duration: 0.3,
       ease: 'power2.out',
       onUpdate: () => {
         progress.value = counter.value
       },
     })
-    .to('.preloader-bar-fill', { scaleX: 1, duration: 0.5, ease: 'power2.out' }, '<')
+    .to('.preloader-bar-fill', { scaleX: 1, duration: 0.3, ease: 'power2.out' }, '<')
     // Text leaves first so the slats reveal a clean panel, not a half-empty one.
     .to(
       ['.preloader-name .split-char', '.preloader-role', '.preloader-counter', '.preloader-bar'],
-      { yPercent: -110, opacity: 0, duration: 0.6, stagger: 0.01, ease: 'power3.in' },
-      '+=0.15',
+      { yPercent: -110, opacity: 0, duration: 0.4, stagger: 0.01, ease: 'power3.in' },
+      '+=0.08',
     )
     // The slats. `stagger` from the centre outwards reads as more deliberate
     // than a plain left-to-right sweep.
@@ -143,16 +143,16 @@ onMounted(async () => {
       '.preloader-slat',
       {
         scaleY: 0,
-        duration: 0.9,
+        duration: 0.65,
         ease: 'power4.inOut',
-        stagger: { each: 0.055, from: 'center' },
+        stagger: { each: 0.035, from: 'center' },
       },
-      '-=0.25',
+      '-=0.2',
     )
     // Hand over to the page slightly BEFORE the slats finish, so the hero is
     // already moving as it is uncovered. Overlapping the two is what makes a
     // transition feel like one motion instead of two.
-    .add(() => finish(), '-=0.55')
+    .add(() => finish(), '-=0.4')
 })
 
 /** Formatted as 000, 047, 100 — a fixed width stops the layout from twitching. */

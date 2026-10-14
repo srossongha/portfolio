@@ -102,7 +102,7 @@ onMounted(() => {
       <!-- Bottom bar -->
       <div class="border-border/50 mt-16 flex flex-col-reverse gap-4 border-t pt-6 sm:flex-row sm:items-center sm:justify-between">
         <p class="text-muted-foreground font-mono text-[11px]">
-          © {{ year }} {{ profile.name }}. Built with Nuxt, Three.js and too much coffee.
+          © {{ year }} {{ profile.name }}. Built with Nuxt, Vue, and Tailwind CSS.
         </p>
 
         <Button

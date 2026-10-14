@@ -73,10 +73,4 @@ export interface SocialLink {
   handle: string
 }
 
-/** An entry in the "things I'm curious about" playground grid. */
-export interface LabItem {
-  title: string
-  description: string
-  /** Used to pick which mini canvas/animation to render in the card. */
-  kind: 'shader' | 'particles' | 'physics' | 'audio' | 'type' | 'cv'
-}
+

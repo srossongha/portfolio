@@ -24,7 +24,6 @@ export default defineNuxtConfig({
     '@vueuse/nuxt', // auto-imports every VueUse composable (useMouse, useElementSize, ...)
     '@nuxtjs/color-mode', // dark/light mode with no flash of wrong theme on load
     'shadcn-nuxt', // registers ./app/components/ui as shadcn-vue components
-    '@tresjs/nuxt', // TresJS: write three.js scenes as Vue components
   ],
 
   // Global stylesheets. Tailwind v4 is configured *inside* main.css
@@ -43,15 +42,6 @@ export default defineNuxtConfig({
     componentDir: './app/components/ui',
   },
 
-  // TresJS settings.
-  // `glsl: true` turns on vite-plugin-glsl, which lets us `import` a .glsl file
-  // and get its source as a string — so shaders live in real .glsl files with
-  // proper syntax highlighting instead of being buried in template literals.
-  tres: {
-    glsl: true,
-    devtools: true,
-  },
-
   // color-mode writes a class on <html> (`dark` / `light`) with no suffix,
   // which is exactly what Tailwind's `dark:` variant expects.
   colorMode: {
@@ -68,7 +58,6 @@ export default defineNuxtConfig({
   components: [
     { path: '~/components/ui', pathPrefix: false },
     { path: '~/components/fx', pathPrefix: false },
-    { path: '~/components/three', pathPrefix: false },
     { path: '~/components/layout', pathPrefix: false },
     { path: '~/components/sections', pathPrefix: false },
     { path: '~/components', pathPrefix: false },
