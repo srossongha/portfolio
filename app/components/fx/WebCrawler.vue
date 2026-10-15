@@ -114,29 +114,48 @@ function solve4PartLeg(
   const coxaEndX = hipStartX + Math.cos(coxaWorldAngle) * coxaLen
   const coxaEndY = hipStartY + Math.sin(coxaWorldAngle) * coxaLen
 
-  // 2. Part 4: Tarsus touches footX, footY
-  const afDx = footX - coxaEndX
-  const afDy = footY - coxaEndY
-  const afDist = Math.hypot(afDx, afDy) || 1
+  // Maximum physical reach of the articulated limb from coxaEnd to claw tip
+  const maxLimbReach = lenFemur + lenTibia + lenTarsus - 0.001
 
-  // Ankle is positioned along vector from foot towards coxaEnd:
-  const ankleX = footX - (afDx / afDist) * lenTarsus
-  const ankleY = footY - (afDy / afDist) * lenTarsus
+  // Vector from coxaEnd to target foot position
+  let fDx = footX - coxaEndX
+  let fDy = footY - coxaEndY
+  let fDist = Math.hypot(fDx, fDy)
+  if (fDist < 0.001) {
+    fDist = 0.001
+    fDx = 0.001
+    fDy = 0
+  }
 
-  // 3. Parts 2 & 3: Solve 2-bone IK (Femur & Tibia) between coxaEnd and ankle
-  let dx = ankleX - coxaEndX
-  let dy = ankleY - coxaEndY
+  // Mathematically guarantee the foot NEVER stretches beyond the physical limb reach
+  let finalFootX = footX
+  let finalFootY = footY
+  if (fDist > maxLimbReach) {
+    finalFootX = coxaEndX + (fDx / fDist) * maxLimbReach
+    finalFootY = coxaEndY + (fDy / fDist) * maxLimbReach
+    fDist = maxLimbReach
+    fDx = finalFootX - coxaEndX
+    fDy = finalFootY - coxaEndY
+  }
+
+  const dirX = fDx / fDist
+  const dirY = fDy / fDist
+
+  // 2. Part 4: Tarsus claw
+  // The tarsus is ALWAYS exactly lenTarsus long from ankle to foot!
+  const finalAnkleX = finalFootX - dirX * lenTarsus
+  const finalAnkleY = finalFootY - dirY * lenTarsus
+
+  // 3. Parts 2 & 3: Solve 2-bone IK (Femur & Tibia) between coxaEnd and finalAnkle
+  let dx = finalAnkleX - coxaEndX
+  let dy = finalAnkleY - coxaEndY
   let d = Math.hypot(dx, dy)
   if (d < 0.001) d = 0.001
-  const maxReach = lenFemur + lenTibia - 0.001
-  let finalAnkleX = ankleX
-  let finalAnkleY = ankleY
-  if (d > maxReach) {
-    finalAnkleX = coxaEndX + (dx / d) * maxReach
-    finalAnkleY = coxaEndY + (dy / d) * maxReach
-    d = maxReach
-    dx = finalAnkleX - coxaEndX
-    dy = finalAnkleY - coxaEndY
+  const maxAnkleReach = lenFemur + lenTibia - 0.001
+  if (d > maxAnkleReach) {
+    d = maxAnkleReach
+    dx = dirX * d
+    dy = dirY * d
   }
 
   const cosA = (lenFemur * lenFemur + d * d - lenTibia * lenTibia) / (2 * lenFemur * d)
@@ -178,8 +197,8 @@ function solve4PartLeg(
     kneeY,
     ankleX: finalAnkleX,
     ankleY: finalAnkleY,
-    footX,
-    footY,
+    footX: finalFootX,
+    footY: finalFootY,
   }
 }
 
@@ -529,7 +548,7 @@ onMounted(() => {
 
     landmarks = list
 
-    // Build smooth continuous patrol circuit through the bio text
+    // Build smooth continuous patrol circuit 100% through the bio text paragraphs
     if (list.length >= 5) {
       waypoints = [
         { x: startX, y: startY, name: 'Perch' },
@@ -538,9 +557,10 @@ onMounted(() => {
         { x: list[2].x, y: list[2].y, landmarkId: list[2].id, name: list[2].name },
         { x: list[3].x, y: list[3].y, landmarkId: list[3].id, name: list[3].name },
         { x: list[4].x, y: list[4].y, landmarkId: list[4].id, name: list[4].name },
-        { x: Math.min(width - 50, bioRight + 40), y: list[4].y + 35, name: 'Lower turn' },
-        { x: Math.min(width - 40, bioRight + 60), y: (list[1].y + list[2].y) / 2, name: 'Mid perimeter' },
-        { x: Math.min(width - 50, bioRight + 30), y: startY + 15, name: 'Top perimeter' },
+        // Return ascent: weave back UP across the left/center of the bio text paragraphs!
+        { x: bioLeft + 45, y: list[4].y - 8, name: 'Bio: Craft & Logic' },
+        { x: (bioLeft + bioRight) / 2 - 25, y: (list[3].y + list[2].y) / 2, name: 'Bio: Frameworks' },
+        { x: bioLeft + 40, y: (list[1].y + list[0].y) / 2, name: 'Bio: Foundations' },
       ]
     }
   }
@@ -715,7 +735,7 @@ onMounted(() => {
           if (!leg.isStepping && leg.stepProgress >= 1) {
             const ideal = localToWorld(spider.x, spider.y, spider.angle, def.rest[0], def.rest[1])
             // Snap foot directly onto text letters!
-            const snapped = snapFootToText(ideal.x, ideal.y, textWords, 38)
+            const snapped = snapFootToText(ideal.x, ideal.y, textWords, 45)
             leg.startFootX = leg.currentFootX
             leg.startFootY = leg.currentFootY
             leg.targetFootX = snapped.x
@@ -740,59 +760,98 @@ onMounted(() => {
       }
     }
 
-    // 2. Stepping Logic: One by One Placement & Continuous Ripple Wave
-    // Brisk, agile stepping speed (65ms scuttle, 55ms landing)
-    const stepDuration = movementMode === 'landing_legs' ? 0.055 : 0.065
+    // 2. Physical Constraint & Stepping Logic
+    // Physical constraint: planted feet cannot stretch beyond maximum limb reach
+    legs.forEach((leg, i) => {
+      const def = LEG_DEFS[i]
+      const cos = Math.cos(spider.angle)
+      const sin = Math.sin(spider.angle)
+      const hipX = spider.x + cos * def.localHip[0] - sin * def.localHip[1]
+      const hipY = spider.y + sin * def.localHip[0] + cos * def.localHip[1]
+      const coxaAngle = spider.angle + def.coxaAngle
+      const cEndX = hipX + Math.cos(coxaAngle) * def.coxaLen
+      const cEndY = hipY + Math.sin(coxaAngle) * def.coxaLen
+      const maxReach = def.lenFemur + def.lenTibia + def.lenTarsus - 2
+
+      const cdx = leg.currentFootX - cEndX
+      const cdy = leg.currentFootY - cEndY
+      const cdist = Math.hypot(cdx, cdy)
+      if (cdist > maxReach) {
+        leg.currentFootX = cEndX + (cdx / cdist) * maxReach
+        leg.currentFootY = cEndY + (cdy / cdist) * maxReach
+      }
+    })
+
+    // Brisk, agile stepping speed (60ms scuttle, 50ms landing)
+    const stepDuration = movementMode === 'landing_legs' ? 0.05 : 0.06
+
+    function triggerLegStep(legIdx: number) {
+      const leg = legs[legIdx]
+      const def = LEG_DEFS[legIdx]
+      const ideal = localToWorld(spider.x, spider.y, spider.angle, def.rest[0], def.rest[1])
+      const leadX = spider.vx * 0.16
+      const leadY = spider.vy * 0.16
+      const rawTargetX = ideal.x + leadX
+      const rawTargetY = ideal.y + leadY
+
+      // Snap foot directly onto letters of nearby words!
+      const snapped = snapFootToText(rawTargetX, rawTargetY, textWords, 45)
+
+      leg.startFootX = leg.currentFootX
+      leg.startFootY = leg.currentFootY
+      leg.targetFootX = snapped.x
+      leg.targetFootY = snapped.y
+      leg.stepProgress = 0
+      leg.isStepping = true
+    }
 
     if (movementMode === 'scuttle') {
-      let anyLegStepping = false
-      for (let i = 0; i < legs.length; i++) {
-        if (legs[i].isStepping) {
-          anyLegStepping = true
-          break
-        }
-      }
+      // Dual-side stepping: Left side (0..3) and Right side (4..7) step independently
+      // Tripod / tetrapod balance: at least 6 legs firmly planted on the text at all times!
+      const leftStepping = legs[0].isStepping || legs[1].isStepping || legs[2].isStepping || legs[3].isStepping
+      const rightStepping = legs[4].isStepping || legs[5].isStepping || legs[6].isStepping || legs[7].isStepping
 
-      if (!anyLegStepping) {
-        let maxDist = 16 // Trigger distance threshold
-        let chosenLegIdx = -1
-
-        for (let s = 0; s < STEP_ORDER.length; s++) {
-          const i = STEP_ORDER[s]
-          const def = LEG_DEFS[i]
+      if (!leftStepping) {
+        let maxDist = 13 // Trigger threshold
+        let chosenIdx = -1
+        for (const i of [3, 2, 1, 0]) {
           const leg = legs[i]
-
+          const def = LEG_DEFS[i]
           const ideal = localToWorld(spider.x, spider.y, spider.angle, def.rest[0], def.rest[1])
-          const leadX = spider.vx * 0.18
-          const leadY = spider.vy * 0.18
+          const leadX = spider.vx * 0.16
+          const leadY = spider.vy * 0.16
           const idealX = ideal.x + leadX
           const idealY = ideal.y + leadY
-
           const dist = Math.hypot(idealX - leg.currentFootX, idealY - leg.currentFootY)
           if (dist > maxDist) {
             maxDist = dist
-            chosenLegIdx = i
+            chosenIdx = i
           }
         }
+        if (chosenIdx !== -1) {
+          triggerLegStep(chosenIdx)
+        }
+      }
 
-        if (chosenLegIdx !== -1) {
-          const leg = legs[chosenLegIdx]
-          const def = LEG_DEFS[chosenLegIdx]
+      if (!rightStepping) {
+        let maxDist = 13 // Trigger threshold
+        let chosenIdx = -1
+        for (const i of [7, 6, 5, 4]) {
+          const leg = legs[i]
+          const def = LEG_DEFS[i]
           const ideal = localToWorld(spider.x, spider.y, spider.angle, def.rest[0], def.rest[1])
-          const leadX = spider.vx * 0.18
-          const leadY = spider.vy * 0.18
-          const rawTargetX = ideal.x + leadX
-          const rawTargetY = ideal.y + leadY
-
-          // Snap foot directly onto letters of nearby words!
-          const snapped = snapFootToText(rawTargetX, rawTargetY, textWords, 38)
-
-          leg.startFootX = leg.currentFootX
-          leg.startFootY = leg.currentFootY
-          leg.targetFootX = snapped.x
-          leg.targetFootY = snapped.y
-          leg.stepProgress = 0
-          leg.isStepping = true
+          const leadX = spider.vx * 0.16
+          const leadY = spider.vy * 0.16
+          const idealX = ideal.x + leadX
+          const idealY = ideal.y + leadY
+          const dist = Math.hypot(idealX - leg.currentFootX, idealY - leg.currentFootY)
+          if (dist > maxDist) {
+            maxDist = dist
+            chosenIdx = i
+          }
+        }
+        if (chosenIdx !== -1) {
+          triggerLegStep(chosenIdx)
         }
       }
     }
