@@ -5,15 +5,16 @@ import { Play, Pause } from '@lucide/vue'
  * Autonomous AI Web Crawler Spider.
  *
  * Inspired by Slava Rybin's viral creative coding project:
- * - 100% autonomous: completely free of scroll dependency.
- * - Smoothly crawls around the bio, exploring and indexing key milestones:
- *   "Computer Science" → "front-end developer" → "Vue, Nuxt, and React" → "Roomie" → "details".
- * - When arriving over a word, all 8 legs place down ONE BY ONE onto the letters.
- * - Luminous laser ripples expand under the claws as each foot taps the text.
- * - Outward-normal 2-bone Inverse Kinematics guarantees clean, elegant knee arcs with
- *   zero knee-crossing or stretching.
- * - Interconnected citation web lines link visited words into a persistent knowledge graph.
- * - Loops seamlessly, returning to the top perch after scanning and beginning fresh cycles.
+ * - 100% autonomous with continuous, fluid motion (NO STOPPING).
+ * - Realistic procedural arachnid locomotion: legs place down ONE BY ONE in a continuous
+ *   metachronal ripple wave (7 legs planted on the page while 1 leg swings and taps down).
+ * - Long, spindly, stretchable legs ("leg can sketch") spanning 75–84px across text lines.
+ * - Outward-normal 2-bone Inverse Kinematics guarantees clean, high-arcing knees with
+ *   zero knee-crossing or distortion.
+ * - Each foot tap emits a crisp micro laser ripple on the letters.
+ * - Seamlessly patrols across the bio, indexing "Computer Science", "front-end developer",
+ *   "Vue, Nuxt, and React", "Roomie", and "details", leaving behind an interconnected citation web.
+ * - Loops smoothly in a continuous circuit around the text.
  */
 
 interface Props {
@@ -26,7 +27,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const isPaused = ref(false)
-const currentStatus = ref('Standing by at perch')
+const currentStatus = ref('Patrolling bio')
 const reduced = useReducedMotion()
 
 // -----------------------------------------------------------------------------
@@ -48,7 +49,7 @@ function normalizeAngle(angle: number): number {
 }
 
 /**
- * 2-bone IK with outward normal constraint.
+ * High-precision 2-bone IK with outward normal constraint.
  * Guarantees that knees ALWAYS arc outward away from the body center cleanly.
  */
 function solveKnee(
@@ -114,7 +115,6 @@ interface LegDef {
   reach: number
   len1: number
   len2: number
-  group: 0 | 1
 }
 
 interface LegState {
@@ -150,6 +150,13 @@ interface TextLandmark {
   landedAnimTime: number
 }
 
+interface Waypoint {
+  x: number
+  y: number
+  landmarkId?: string
+  name: string
+}
+
 interface Shockwave {
   x: number
   y: number
@@ -179,23 +186,24 @@ interface Sparkle {
   life: number
 }
 
-// 8 Clean arachnid legs with comfortable, un-stretched geometry (reach 48–54px, max 64px)
+// 8 Spindly, long arachnid legs that can stretch and reach across text lines (~75–84px)
 const LEG_DEFS: LegDef[] = [
   // Left side (Front to Back)
-  { side: -1, hipAngleOffset: -0.78, hipDist: 10, restAngle: -0.82, reach: 52, len1: 30, len2: 34, group: 0 },
-  { side: -1, hipAngleOffset: -0.26, hipDist: 9,  restAngle: -0.38, reach: 48, len1: 28, len2: 32, group: 1 },
-  { side: -1, hipAngleOffset: 0.26,  hipDist: 9,  restAngle: 0.38,  reach: 48, len1: 28, len2: 32, group: 0 },
-  { side: -1, hipAngleOffset: 0.78,  hipDist: 10, restAngle: 0.92,  reach: 54, len1: 30, len2: 36, group: 1 },
+  { side: -1, hipAngleOffset: -0.82, hipDist: 11, restAngle: -0.92, reach: 76, len1: 36, len2: 44 },
+  { side: -1, hipAngleOffset: -0.28, hipDist: 10, restAngle: -0.42, reach: 68, len1: 32, len2: 40 },
+  { side: -1, hipAngleOffset: 0.28,  hipDist: 10, restAngle: 0.42,  reach: 68, len1: 32, len2: 40 },
+  { side: -1, hipAngleOffset: 0.82,  hipDist: 11, restAngle: 1.05,  reach: 80, len1: 38, len2: 46 },
 
   // Right side (Front to Back)
-  { side: 1, hipAngleOffset: 0.78,  hipDist: 10, restAngle: 0.82,  reach: 52, len1: 30, len2: 34, group: 1 },
-  { side: 1, hipAngleOffset: 0.26,  hipDist: 9,  restAngle: 0.38,  reach: 48, len1: 28, len2: 32, group: 0 },
-  { side: 1, hipAngleOffset: -0.26, hipDist: 9,  restAngle: -0.38, reach: 48, len1: 28, len2: 32, group: 1 },
-  { side: 1, hipAngleOffset: -0.78, hipDist: 10, restAngle: -0.92, reach: 54, len1: 30, len2: 36, group: 0 },
+  { side: 1, hipAngleOffset: 0.82,  hipDist: 11, restAngle: 0.92,  reach: 76, len1: 36, len2: 44 },
+  { side: 1, hipAngleOffset: 0.28,  hipDist: 10, restAngle: 0.42,  reach: 68, len1: 32, len2: 40 },
+  { side: 1, hipAngleOffset: -0.28, hipDist: 10, restAngle: -0.42, reach: 68, len1: 32, len2: 40 },
+  { side: 1, hipAngleOffset: -0.82, hipDist: 11, restAngle: -1.05, reach: 80, len1: 38, len2: 46 },
 ]
 
-// Step order for one-by-one foot placement when perching on text
-const STEP_ORDER = [0, 4, 1, 5, 2, 6, 3, 7]
+// Stepping order for the one-by-one wave gait:
+// Alternating between sides, moving from rear legs to front legs
+const STEP_ORDER = [3, 7, 2, 6, 1, 5, 0, 4]
 
 // Ordered milestones down the About Me bio
 const LANDMARK_CONFIGS = [
@@ -266,6 +274,9 @@ onMounted(() => {
   let dpr = Math.min(window.devicePixelRatio || 1, 2)
 
   let landmarks: TextLandmark[] = []
+  let waypoints: Waypoint[] = []
+  let currentWaypointIndex = 0
+
   let startX = width * 0.22
   let startY = 85
 
@@ -307,12 +318,18 @@ onMounted(() => {
     const allWordEls = Array.from(container.querySelectorAll<HTMLElement>('.about-bio .split-word'))
     if (allWordEls.length === 0) return
 
-    // Position initial perch above the first bio line
     const bioEl = container.querySelector('.about-bio') as HTMLElement | null
+    let bioLeft = width * 0.15
+    let bioRight = width * 0.55
+    let bioTop = 100
+
     if (bioEl) {
       const bioRect = bioEl.getBoundingClientRect()
-      startX = bioRect.left - containerRect.left + 50
-      startY = Math.max(45, bioRect.top - containerRect.top - 40)
+      bioLeft = bioRect.left - containerRect.left
+      bioRight = bioRect.right - containerRect.left
+      bioTop = bioRect.top - containerRect.top
+      startX = bioLeft + 45
+      startY = Math.max(45, bioTop - 40)
     }
 
     const list: TextLandmark[] = []
@@ -361,41 +378,26 @@ onMounted(() => {
     })
 
     landmarks = list
+
+    // Build smooth continuous patrol circuit through the bio text
+    if (list.length >= 5) {
+      waypoints = [
+        { x: startX, y: startY, name: 'Perch' },
+        { x: list[0].x, y: list[0].y, landmarkId: list[0].id, name: list[0].name },
+        { x: list[1].x, y: list[1].y, landmarkId: list[1].id, name: list[1].name },
+        { x: list[2].x, y: list[2].y, landmarkId: list[2].id, name: list[2].name },
+        { x: list[3].x, y: list[3].y, landmarkId: list[3].id, name: list[3].name },
+        { x: list[4].x, y: list[4].y, landmarkId: list[4].id, name: list[4].name },
+        { x: Math.min(width - 50, bioRight + 40), y: list[4].y + 35, name: 'Lower turn' },
+        { x: Math.min(width - 40, bioRight + 60), y: (list[1].y + list[2].y) / 2, name: 'Mid perimeter' },
+        { x: Math.min(width - 50, bioRight + 30), y: startY + 15, name: 'Top perimeter' },
+      ]
+    }
   }
 
   setTimeout(refreshLandmarks, 150)
   setTimeout(refreshLandmarks, 600)
   setTimeout(refreshLandmarks, 1500)
-
-  // ---------------------------------------------------------------------------
-  // Target Foot Coordinates Directly ON the Words (No Unnatural Stretches!)
-  // ---------------------------------------------------------------------------
-  function getLandmarkFootTarget(lm: TextLandmark, legIndex: number): { x: number; y: number } {
-    const b = lm.box
-    const spanX = Math.min(36, b.width * 0.35)
-    const innerX = Math.min(24, b.width * 0.22)
-
-    switch (legIndex) {
-      case 0: // Front-Left: top-left letters
-        return { x: lm.x - innerX, y: b.top - 1 }
-      case 4: // Front-Right: top-right letters
-        return { x: lm.x + innerX, y: b.top - 1 }
-      case 1: // Mid-Front-Left: middle-left letters
-        return { x: lm.x - spanX, y: b.top + b.height * 0.38 }
-      case 5: // Mid-Front-Right: middle-right letters
-        return { x: lm.x + spanX, y: b.top + b.height * 0.38 }
-      case 2: // Mid-Rear-Left: bottom-left letters
-        return { x: lm.x - innerX, y: b.bottom + 1 }
-      case 6: // Mid-Rear-Right: bottom-right letters
-        return { x: lm.x + innerX, y: b.bottom + 1 }
-      case 3: // Rear-Left: anchor behind-left
-        return { x: lm.x - spanX * 0.95, y: b.bottom + 9 }
-      case 7: // Rear-Right: anchor behind-right
-        return { x: lm.x + spanX * 0.95, y: b.bottom + 9 }
-      default:
-        return { x: lm.x, y: lm.y }
-    }
-  }
 
   // ---------------------------------------------------------------------------
   // Spider Physics & Kinematic State
@@ -405,10 +407,8 @@ onMounted(() => {
     y: startY,
     vx: 0,
     vy: 0,
-    angle: Math.PI / 2, // Facing downward toward bio
-    maxSpeed: 135, // px / sec (relaxed, deliberate autonomous crawling speed)
-    activeGroup: 0 as 0 | 1,
-    isMoving: false,
+    angle: Math.PI / 2, // Facing downward
+    speed: 108, // px / sec: smooth, continuous crawl
     pedipalpPhase: 0,
     idlePhase: 0,
   }
@@ -436,13 +436,6 @@ onMounted(() => {
   const footRipples: FootRipple[] = []
   const sparkles: Sparkle[] = []
 
-  // ---------------------------------------------------------------------------
-  // Fully Autonomous Roaming State Machine (No Scroll Dependency!)
-  // ---------------------------------------------------------------------------
-  let currentMilestoneIndex = 0
-  let milestoneDwellTime = 0
-  let isReturningToPerch = false
-
   let isVisibleOnScreen = true
   intersectionObserver = new IntersectionObserver(
     ([entry]) => {
@@ -463,257 +456,174 @@ onMounted(() => {
 
     const dt = Math.min((currentTime - lastTime) / 1000, 0.08)
     lastTime = currentTime
-    spider.pedipalpPhase += dt * 7
-    spider.idlePhase += dt * 2.5
+    spider.pedipalpPhase += dt * 8
+    spider.idlePhase += dt * 3
 
-    // 1. Autonomous Navigation Target Logic
-    let destX = startX
-    let destY = startY
-    let targetLandmark: TextLandmark | null = null
+    // 1. Continuous Non-Stop Waypoint Navigation
+    if (waypoints.length > 0) {
+      const targetWaypoint = waypoints[currentWaypointIndex]
+      const dx = targetWaypoint.x - spider.x
+      const dy = targetWaypoint.y - spider.y
+      const dist = Math.hypot(dx, dy)
 
-    if (isReturningToPerch) {
-      destX = startX
-      destY = startY
-      const distToPerch = Math.hypot(startX - spider.x, startY - spider.y)
-      if (distToPerch < 12) {
-        milestoneDwellTime += dt
-        if (milestoneDwellTime > 1.2) {
-          // Reset highlights for clean new loop
-          landmarks.forEach((lm) => {
-            lm.isLanded = false
-            lm.elements.forEach((el) => el.classList.remove(lm.highlightClass))
-          })
-          isReturningToPerch = false
-          currentMilestoneIndex = 0
-          milestoneDwellTime = 0
-        }
-      }
-    } else if (landmarks.length > 0) {
-      targetLandmark = landmarks[currentMilestoneIndex]
-      destX = targetLandmark.x
-      destY = targetLandmark.y
-
-      const distToLandmark = Math.hypot(destX - spider.x, destY - spider.y)
-      if (distToLandmark <= 10) {
-        // Body has arrived over the word!
-        milestoneDwellTime += dt
-        const targetDwell = currentMilestoneIndex === landmarks.length - 1 ? 2.6 : 2.0
-
-        if (milestoneDwellTime >= targetDwell) {
-          milestoneDwellTime = 0
-          if (currentMilestoneIndex < landmarks.length - 1) {
-            currentMilestoneIndex++
-          } else {
-            isReturningToPerch = true
-          }
-        }
-      } else {
-        milestoneDwellTime = 0
-      }
-    }
-
-    // Trigger landmark landing visual effects when reached
-    if (targetLandmark && !isReturningToPerch) {
-      const distToLm = Math.hypot(targetLandmark.x - spider.x, targetLandmark.y - spider.y)
-      if (distToLm <= 10 && !targetLandmark.isLanded) {
-        targetLandmark.isLanded = true
-        targetLandmark.landedAnimTime = 0
-
-        targetLandmark.elements.forEach((el) => el.classList.add(targetLandmark!.highlightClass))
-
-        shockwaves.push({
-          x: targetLandmark.x,
-          y: targetLandmark.y,
-          radius: 8,
-          maxRadius: 60,
-          color: targetLandmark.themeColor,
-          alpha: 1,
-        })
-
-        for (let s = 0; s < 10; s++) {
-          const spAngle = Math.random() * Math.PI * 2
-          const spSpeed = 20 + Math.random() * 45
-          sparkles.push({
-            x: targetLandmark.x + (Math.random() - 0.5) * targetLandmark.box.width,
-            y: targetLandmark.box.bottom,
-            vx: Math.cos(spAngle) * spSpeed,
-            vy: -15 - Math.random() * 30,
-            size: 1.4 + Math.random() * 1.8,
-            color: targetLandmark.themeColor,
-            alpha: 1,
-            life: 0.6 + Math.random() * 0.4,
-          })
-        }
-      }
-    }
-
-    // 2. Smooth Steering & Movement (Arrive Behavior)
-    const dx = destX - spider.x
-    const dy = destY - spider.y
-    const dist = Math.hypot(dx, dy)
-    const isLandedOnTarget = targetLandmark !== null && dist <= 10
-
-    if (dist > 6) {
-      spider.isMoving = true
+      // Smooth steering toward target
       const targetAngle = Math.atan2(dy, dx)
       const angleDiff = normalizeAngle(targetAngle - spider.angle)
-      spider.angle += angleDiff * Math.min(dt * 7.0, 1)
+      spider.angle += angleDiff * Math.min(dt * 6.0, 1)
 
-      const speedFactor = clamp(dist / 38, 0.22, 1.0)
-      const currentSpeed = spider.maxSpeed * speedFactor
-      spider.vx = Math.cos(spider.angle) * currentSpeed
-      spider.vy = Math.sin(spider.angle) * currentSpeed
+      // Constant fluid velocity - NEVER STOPS
+      spider.vx = Math.cos(spider.angle) * spider.speed
+      spider.vy = Math.sin(spider.angle) * spider.speed
 
       spider.x += spider.vx * dt
       spider.y += spider.vy * dt
 
-      currentStatus.value = targetLandmark
-        ? `Crawling to: ${targetLandmark.name}`
-        : 'Returning to perch'
-    } else {
-      spider.isMoving = false
-      spider.vx = 0
-      spider.vy = 0
-      spider.x = lerp(spider.x, destX, 0.2)
-      spider.y = lerp(spider.y, destY, 0.2)
+      currentStatus.value = `Crawling to: ${targetWaypoint.name}`
 
-      currentStatus.value = targetLandmark
-        ? `Landed on: ${targetLandmark.name}`
-        : 'Standing by at perch'
-    }
+      // Check if passing over a landmark milestone
+      if (targetWaypoint.landmarkId && dist < 36) {
+        const lm = landmarks.find((l) => l.id === targetWaypoint.landmarkId)
+        if (lm && !lm.isLanded) {
+          lm.isLanded = true
+          lm.elements.forEach((el) => el.classList.add(lm.highlightClass))
 
-    // 3. Clean Kinematic Stepping (Gait while moving; One-by-One when landing on text)
-    const activeColor = targetLandmark ? targetLandmark.themeColor : '#38bdf8'
+          shockwaves.push({
+            x: lm.x,
+            y: lm.y,
+            radius: 8,
+            maxRadius: 60,
+            color: lm.themeColor,
+            alpha: 1,
+          })
 
-    if (spider.isMoving) {
-      // Synchronized tetrapod gait while moving: NO stretching or trailing legs!
-      const stepDuration = 0.12
-      let groupNeedsStep = false
-
-      LEG_DEFS.forEach((def, i) => {
-        if (def.group === spider.activeGroup) {
-          const hipX =
-            spider.x + Math.cos(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
-          const hipY =
-            spider.y + Math.sin(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
-          const idealAngle = spider.angle + def.restAngle * def.side
-          const idealX = hipX + Math.cos(idealAngle) * def.reach
-          const idealY = hipY + Math.sin(idealAngle) * def.reach
-
-          const leg = legs[i]
-          const footDist = Math.hypot(idealX - leg.currentFootX, idealY - leg.currentFootY)
-          if (footDist > 16) {
-            groupNeedsStep = true
-          }
-        }
-      })
-
-      if (groupNeedsStep) {
-        LEG_DEFS.forEach((def, i) => {
-          if (def.group === spider.activeGroup) {
-            const leg = legs[i]
-            if (!leg.isStepping) {
-              const hipX =
-                spider.x + Math.cos(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
-              const hipY =
-                spider.y + Math.sin(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
-              const idealAngle = spider.angle + def.restAngle * def.side
-              const leadX = spider.vx * 0.14
-              const leadY = spider.vy * 0.14
-
-              leg.startFootX = leg.currentFootX
-              leg.startFootY = leg.currentFootY
-              leg.targetFootX = hipX + Math.cos(idealAngle) * def.reach + leadX
-              leg.targetFootY = hipY + Math.sin(idealAngle) * def.reach + leadY
-              leg.stepProgress = 0
-              leg.isStepping = true
-            }
-          }
-        })
-      }
-
-      let allGroupDone = true
-      legs.forEach((leg) => {
-        if (leg.isStepping) {
-          leg.stepProgress += dt / stepDuration
-          if (leg.stepProgress >= 1) {
-            leg.stepProgress = 1
-            leg.isStepping = false
-            leg.currentFootX = leg.targetFootX
-            leg.currentFootY = leg.targetFootY
-          } else {
-            allGroupDone = false
-            const t = leg.stepProgress
-            const smoothT = t * t * (3 - 2 * t)
-            const lift = Math.sin(Math.PI * t) * 11
-            leg.currentFootX = lerp(leg.startFootX, leg.targetFootX, smoothT)
-            leg.currentFootY = lerp(leg.startFootY, leg.targetFootY, smoothT) - lift
-          }
-        }
-      })
-
-      if (allGroupDone && groupNeedsStep) {
-        spider.activeGroup = spider.activeGroup === 0 ? 1 : 0
-      }
-    } else if (isLandedOnTarget && targetLandmark) {
-      // Body is stationary over the word: legs place down ONE BY ONE onto the text!
-      const stepDuration = 0.08
-      let currentlyStepping = false
-
-      for (let i = 0; i < legs.length; i++) {
-        if (legs[i].isStepping) {
-          currentlyStepping = true
-          break
-        }
-      }
-
-      if (!currentlyStepping) {
-        for (let s = 0; s < STEP_ORDER.length; s++) {
-          const i = STEP_ORDER[s]
-          const leg = legs[i]
-          const target = getLandmarkFootTarget(targetLandmark, i)
-          const footDist = Math.hypot(target.x - leg.currentFootX, target.y - leg.currentFootY)
-
-          if (footDist > 4) {
-            leg.startFootX = leg.currentFootX
-            leg.startFootY = leg.currentFootY
-            leg.targetFootX = target.x
-            leg.targetFootY = target.y
-            leg.stepProgress = 0
-            leg.isStepping = true
-            break // Step ONE BY ONE!
-          }
-        }
-      }
-
-      legs.forEach((leg) => {
-        if (leg.isStepping) {
-          leg.stepProgress += dt / stepDuration
-          if (leg.stepProgress >= 1) {
-            leg.stepProgress = 1
-            leg.isStepping = false
-            leg.currentFootX = leg.targetFootX
-            leg.currentFootY = leg.targetFootY
-
-            // Micro laser ripple on the letter
-            footRipples.push({
-              x: leg.currentFootX,
-              y: leg.currentFootY,
-              radius: 1.5,
-              maxRadius: 6,
-              color: activeColor,
-              alpha: 0.85,
+          for (let s = 0; s < 10; s++) {
+            const spAngle = Math.random() * Math.PI * 2
+            const spSpeed = 20 + Math.random() * 45
+            sparkles.push({
+              x: lm.x + (Math.random() - 0.5) * lm.box.width,
+              y: lm.box.bottom,
+              vx: Math.cos(spAngle) * spSpeed,
+              vy: -15 - Math.random() * 30,
+              size: 1.4 + Math.random() * 1.8,
+              color: lm.themeColor,
+              alpha: 1,
+              life: 0.6 + Math.random() * 0.4,
             })
-          } else {
-            const t = leg.stepProgress
-            const smoothT = t * t * (3 - 2 * t)
-            const lift = Math.sin(Math.PI * t) * 8
-            leg.currentFootX = lerp(leg.startFootX, leg.targetFootX, smoothT)
-            leg.currentFootY = lerp(leg.startFootY, leg.targetFootY, smoothT) - lift
           }
         }
-      })
+      }
+
+      // Smoothly advance to next waypoint when within 28px without stopping
+      if (dist < 28) {
+        currentWaypointIndex = (currentWaypointIndex + 1) % waypoints.length
+
+        // When completing a full loop back to perch, reset landmarks for fresh scan
+        if (currentWaypointIndex === 0) {
+          landmarks.forEach((lm) => {
+            lm.isLanded = false
+            lm.elements.forEach((el) => el.classList.remove(lm.highlightClass))
+          })
+        }
+      }
     }
+
+    // Determine currently active landmark theme color
+    const nextLm = waypoints[currentWaypointIndex]?.landmarkId
+      ? landmarks.find((l) => l.id === waypoints[currentWaypointIndex].landmarkId)
+      : null
+    const activeColor = nextLm ? nextLm.themeColor : '#38bdf8'
+
+    // 2. Realistic Continuous One-by-One Metachronal Stepping
+    const stepDuration = 0.085
+
+    // Check if any leg is currently in the air
+    let anyLegStepping = false
+    for (let i = 0; i < legs.length; i++) {
+      if (legs[i].isStepping) {
+        anyLegStepping = true
+        break
+      }
+    }
+
+    // If all legs are planted, choose the single leg furthest from its ideal footprint
+    if (!anyLegStepping) {
+      let maxDist = 17 // Step trigger threshold
+      let chosenLegIdx = -1
+
+      for (let s = 0; s < STEP_ORDER.length; s++) {
+        const i = STEP_ORDER[s]
+        const def = LEG_DEFS[i]
+        const leg = legs[i]
+
+        const hipX =
+          spider.x + Math.cos(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
+        const hipY =
+          spider.y + Math.sin(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
+        const idealAngle = spider.angle + def.restAngle * def.side
+
+        // Step leads in direction of velocity (legs stretch out and sketch smoothly!)
+        const leadX = spider.vx * 0.22
+        const leadY = spider.vy * 0.22
+        const idealX = hipX + Math.cos(idealAngle) * def.reach + leadX
+        const idealY = hipY + Math.sin(idealAngle) * def.reach + leadY
+
+        const dist = Math.hypot(idealX - leg.currentFootX, idealY - leg.currentFootY)
+        if (dist > maxDist) {
+          maxDist = dist
+          chosenLegIdx = i
+        }
+      }
+
+      if (chosenLegIdx !== -1) {
+        const leg = legs[chosenLegIdx]
+        const def = LEG_DEFS[chosenLegIdx]
+
+        const hipX =
+          spider.x + Math.cos(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
+        const hipY =
+          spider.y + Math.sin(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
+        const idealAngle = spider.angle + def.restAngle * def.side
+        const leadX = spider.vx * 0.22
+        const leadY = spider.vy * 0.22
+
+        leg.startFootX = leg.currentFootX
+        leg.startFootY = leg.currentFootY
+        leg.targetFootX = hipX + Math.cos(idealAngle) * def.reach + leadX
+        leg.targetFootY = hipY + Math.sin(idealAngle) * def.reach + leadY
+        leg.stepProgress = 0
+        leg.isStepping = true
+      }
+    }
+
+    // Animate the single stepping leg smoothly
+    legs.forEach((leg) => {
+      if (leg.isStepping) {
+        leg.stepProgress += dt / stepDuration
+        if (leg.stepProgress >= 1) {
+          leg.stepProgress = 1
+          leg.isStepping = false
+          leg.currentFootX = leg.targetFootX
+          leg.currentFootY = leg.targetFootY
+
+          // Micro laser ripple on the letters/page when foot taps down!
+          footRipples.push({
+            x: leg.currentFootX,
+            y: leg.currentFootY,
+            radius: 1.5,
+            maxRadius: 6.5,
+            color: activeColor,
+            alpha: 0.85,
+          })
+        } else {
+          const t = leg.stepProgress
+          const smoothT = t * t * (3 - 2 * t)
+          // Parabolic knee lift
+          const lift = Math.sin(Math.PI * t) * 14
+          leg.currentFootX = lerp(leg.startFootX, leg.targetFootX, smoothT)
+          leg.currentFootY = lerp(leg.startFootY, leg.targetFootY, smoothT) - lift
+        }
+      }
+    })
 
     // -------------------------------------------------------------------------
     // Canvas Rendering
@@ -767,6 +677,7 @@ onMounted(() => {
         ctx.fill()
       })
 
+      // Active silk line to spider's spinneret
       const lastLanded = landedList[landedList.length - 1]
       ctx.beginPath()
       ctx.moveTo(spider.x - Math.cos(spider.angle) * 11, spider.y - Math.sin(spider.angle) * 11)
@@ -905,7 +816,7 @@ onMounted(() => {
     ctx.shadowBlur = 8
     ctx.shadowOffsetY = 3
 
-    // Render 8 Clean Legs with Outward Knee Arcs (NEVER stretched!)
+    // Render 8 Spindly, Stretchable Legs with Outward Knee Arcs
     LEG_DEFS.forEach((def, i) => {
       const leg = legs[i]
       const hipX = spider.x + Math.cos(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
@@ -939,7 +850,7 @@ onMounted(() => {
       ctx.lineWidth = 1.4
       ctx.stroke()
 
-      // Knee joint - crisp micro white node
+      // Knee joint - micro white node
       ctx.beginPath()
       ctx.arc(ik.kneeX, ik.kneeY, 1.8, 0, Math.PI * 2)
       ctx.fillStyle = '#ffffff'
@@ -954,17 +865,6 @@ onMounted(() => {
       ctx.shadowColor = activeColor
       ctx.shadowBlur = 6
       ctx.fill()
-
-      // Luminous targeting reticle under foot when landed on word
-      if (isLandedOnTarget) {
-        ctx.beginPath()
-        ctx.arc(ik.footX, ik.footY, 3.6, 0, Math.PI * 2)
-        ctx.strokeStyle = activeColor
-        ctx.lineWidth = 0.9
-        ctx.globalAlpha = 0.65
-        ctx.stroke()
-        ctx.globalAlpha = 1.0
-      }
     })
 
     // Render Spider Body
@@ -999,7 +899,7 @@ onMounted(() => {
     ctx.lineWidth = 1.4
     ctx.stroke()
 
-    // Pedipalps (front twitching sensory feelers)
+    // Pedipalps (front sensory feelers)
     const palp = Math.sin(spider.pedipalpPhase) * 1.5
     ctx.beginPath()
     ctx.moveTo(11, -3)
