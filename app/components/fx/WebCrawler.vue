@@ -5,15 +5,15 @@ import { Play, Pause } from '@lucide/vue'
  * Autonomous AI Web Crawler Spider.
  *
  * Inspired by Slava Rybin's viral creative coding project:
- * - Begins perched at the top of the About Me section.
- * - Perfectly synchronized kinematics: knees stay bent at crisp, natural angles with
- *   ZERO rubbery stretching.
- * - Alternating tetrapod gait while walking ensures legs are never dragged or stretched.
- * - When arriving over a keyword ("Computer Science", "front-end developer", etc.),
- *   all 8 legs place down ONE BY ONE directly onto the letters of the text.
- * - Each foot tap emits a crisp micro laser ripple on the text.
- * - Continuously LOOPS through the bio milestones in an autonomous scanning patrol,
- *   while seamlessly adapting to manual user scroll focus.
+ * - 100% autonomous: completely free of scroll dependency.
+ * - Smoothly crawls around the bio, exploring and indexing key milestones:
+ *   "Computer Science" → "front-end developer" → "Vue, Nuxt, and React" → "Roomie" → "details".
+ * - When arriving over a word, all 8 legs place down ONE BY ONE onto the letters.
+ * - Luminous laser ripples expand under the claws as each foot taps the text.
+ * - Outward-normal 2-bone Inverse Kinematics guarantees clean, elegant knee arcs with
+ *   zero knee-crossing or stretching.
+ * - Interconnected citation web lines link visited words into a persistent knowledge graph.
+ * - Loops seamlessly, returning to the top perch after scanning and beginning fresh cycles.
  */
 
 interface Props {
@@ -248,7 +248,6 @@ const LANDMARK_CONFIGS = [
 let animFrameId: number | null = null
 let resizeObserver: ResizeObserver | null = null
 let intersectionObserver: IntersectionObserver | null = null
-let scrollListener: (() => void) | null = null
 
 onMounted(() => {
   if (reduced.value) return
@@ -373,7 +372,6 @@ onMounted(() => {
   // ---------------------------------------------------------------------------
   function getLandmarkFootTarget(lm: TextLandmark, legIndex: number): { x: number; y: number } {
     const b = lm.box
-    // Comfortable span within natural leg reach (< 38px from center)
     const spanX = Math.min(36, b.width * 0.35)
     const innerX = Math.min(24, b.width * 0.22)
 
@@ -408,7 +406,7 @@ onMounted(() => {
     vx: 0,
     vy: 0,
     angle: Math.PI / 2, // Facing downward toward bio
-    maxSpeed: 185, // px / sec
+    maxSpeed: 135, // px / sec (relaxed, deliberate autonomous crawling speed)
     activeGroup: 0 as 0 | 1,
     isMoving: false,
     pedipalpPhase: 0,
@@ -439,35 +437,11 @@ onMounted(() => {
   const sparkles: Sparkle[] = []
 
   // ---------------------------------------------------------------------------
-  // Autonomous Looping Patrol & Scroll Synchronization
+  // Fully Autonomous Roaming State Machine (No Scroll Dependency!)
   // ---------------------------------------------------------------------------
   let currentMilestoneIndex = 0
   let milestoneDwellTime = 0
   let isReturningToPerch = false
-  let lastUserScrollTime = 0
-
-  scrollListener = () => {
-    lastUserScrollTime = performance.now()
-  }
-  window.addEventListener('scroll', scrollListener, { passive: true })
-
-  function getScrollFocusIndex(): number {
-    if (!container || landmarks.length === 0) return -1
-    const containerRect = container.getBoundingClientRect()
-    const windowH = window.innerHeight
-
-    if (containerRect.top > windowH * 0.65) return -1
-
-    const viewportFocusY = windowH * 0.48 - containerRect.top
-
-    let targetIdx = -1
-    for (let i = 0; i < landmarks.length; i++) {
-      if (viewportFocusY >= landmarks[i].y - 85) {
-        targetIdx = i
-      }
-    }
-    return targetIdx
-  }
 
   let isVisibleOnScreen = true
   intersectionObserver = new IntersectionObserver(
@@ -492,84 +466,67 @@ onMounted(() => {
     spider.pedipalpPhase += dt * 7
     spider.idlePhase += dt * 2.5
 
-    // 1. Determine Navigation Destination (Autonomous Loop or Scroll Tracking)
-    const isUserScrolling = currentTime - lastUserScrollTime < 1300
-
+    // 1. Autonomous Navigation Target Logic
     let destX = startX
     let destY = startY
     let targetLandmark: TextLandmark | null = null
 
-    if (isUserScrolling) {
-      // Direct scroll tracking mode
-      const scrollIdx = getScrollFocusIndex()
-      if (scrollIdx >= 0 && scrollIdx < landmarks.length) {
-        currentMilestoneIndex = scrollIdx
-        targetLandmark = landmarks[scrollIdx]
-        destX = targetLandmark.x
-        destY = targetLandmark.y
-        isReturningToPerch = false
-        milestoneDwellTime = 0
-      } else {
-        destX = startX
-        destY = startY
-      }
-    } else {
-      // Autonomous Loop Patrol mode
-      if (isReturningToPerch) {
-        destX = startX
-        destY = startY
-        const distToPerch = Math.hypot(startX - spider.x, startY - spider.y)
-        if (distToPerch < 15) {
-          milestoneDwellTime += dt
-          if (milestoneDwellTime > 1.2) {
-            // Reset web for clean fresh loop
-            landmarks.forEach((lm) => {
-              lm.isLanded = false
-              lm.elements.forEach((el) => el.classList.remove(lm.highlightClass))
-            })
-            isReturningToPerch = false
-            currentMilestoneIndex = 0
-            milestoneDwellTime = 0
-          }
-        }
-      } else if (landmarks.length > 0) {
-        targetLandmark = landmarks[currentMilestoneIndex]
-        destX = targetLandmark.x
-        destY = targetLandmark.y
-
-        const distToLandmark = Math.hypot(destX - spider.x, destY - spider.y)
-        if (distToLandmark <= 10) {
-          milestoneDwellTime += dt
-          const targetDwell = currentMilestoneIndex === landmarks.length - 1 ? 2.4 : 1.8
-
-          if (milestoneDwellTime >= targetDwell) {
-            milestoneDwellTime = 0
-            if (currentMilestoneIndex < landmarks.length - 1) {
-              currentMilestoneIndex++
-            } else {
-              isReturningToPerch = true
-            }
-          }
-        } else {
+    if (isReturningToPerch) {
+      destX = startX
+      destY = startY
+      const distToPerch = Math.hypot(startX - spider.x, startY - spider.y)
+      if (distToPerch < 12) {
+        milestoneDwellTime += dt
+        if (milestoneDwellTime > 1.2) {
+          // Reset highlights for clean new loop
+          landmarks.forEach((lm) => {
+            lm.isLanded = false
+            lm.elements.forEach((el) => el.classList.remove(lm.highlightClass))
+          })
+          isReturningToPerch = false
+          currentMilestoneIndex = 0
           milestoneDwellTime = 0
         }
       }
+    } else if (landmarks.length > 0) {
+      targetLandmark = landmarks[currentMilestoneIndex]
+      destX = targetLandmark.x
+      destY = targetLandmark.y
+
+      const distToLandmark = Math.hypot(destX - spider.x, destY - spider.y)
+      if (distToLandmark <= 10) {
+        // Body has arrived over the word!
+        milestoneDwellTime += dt
+        const targetDwell = currentMilestoneIndex === landmarks.length - 1 ? 2.6 : 2.0
+
+        if (milestoneDwellTime >= targetDwell) {
+          milestoneDwellTime = 0
+          if (currentMilestoneIndex < landmarks.length - 1) {
+            currentMilestoneIndex++
+          } else {
+            isReturningToPerch = true
+          }
+        }
+      } else {
+        milestoneDwellTime = 0
+      }
     }
 
-    // Index visited landmarks
-    landmarks.forEach((lm, idx) => {
-      if (!isReturningToPerch && idx <= currentMilestoneIndex && !lm.isLanded) {
-        lm.isLanded = true
-        lm.landedAnimTime = 0
+    // Trigger landmark landing visual effects when reached
+    if (targetLandmark && !isReturningToPerch) {
+      const distToLm = Math.hypot(targetLandmark.x - spider.x, targetLandmark.y - spider.y)
+      if (distToLm <= 10 && !targetLandmark.isLanded) {
+        targetLandmark.isLanded = true
+        targetLandmark.landedAnimTime = 0
 
-        lm.elements.forEach((el) => el.classList.add(lm.highlightClass))
+        targetLandmark.elements.forEach((el) => el.classList.add(targetLandmark!.highlightClass))
 
         shockwaves.push({
-          x: lm.x,
-          y: lm.y,
+          x: targetLandmark.x,
+          y: targetLandmark.y,
           radius: 8,
           maxRadius: 60,
-          color: lm.themeColor,
+          color: targetLandmark.themeColor,
           alpha: 1,
         })
 
@@ -577,18 +534,18 @@ onMounted(() => {
           const spAngle = Math.random() * Math.PI * 2
           const spSpeed = 20 + Math.random() * 45
           sparkles.push({
-            x: lm.x + (Math.random() - 0.5) * lm.box.width,
-            y: lm.box.bottom,
+            x: targetLandmark.x + (Math.random() - 0.5) * targetLandmark.box.width,
+            y: targetLandmark.box.bottom,
             vx: Math.cos(spAngle) * spSpeed,
             vy: -15 - Math.random() * 30,
             size: 1.4 + Math.random() * 1.8,
-            color: lm.themeColor,
+            color: targetLandmark.themeColor,
             alpha: 1,
             life: 0.6 + Math.random() * 0.4,
           })
         }
       }
-    })
+    }
 
     // 2. Smooth Steering & Movement (Arrive Behavior)
     const dx = destX - spider.x
@@ -600,7 +557,7 @@ onMounted(() => {
       spider.isMoving = true
       const targetAngle = Math.atan2(dy, dx)
       const angleDiff = normalizeAngle(targetAngle - spider.angle)
-      spider.angle += angleDiff * Math.min(dt * 7.5, 1)
+      spider.angle += angleDiff * Math.min(dt * 7.0, 1)
 
       const speedFactor = clamp(dist / 38, 0.22, 1.0)
       const currentSpeed = spider.maxSpeed * speedFactor
@@ -612,7 +569,7 @@ onMounted(() => {
 
       currentStatus.value = targetLandmark
         ? `Crawling to: ${targetLandmark.name}`
-        : 'Loop complete · Returning to perch'
+        : 'Returning to perch'
     } else {
       spider.isMoving = false
       spider.vx = 0
@@ -629,8 +586,8 @@ onMounted(() => {
     const activeColor = targetLandmark ? targetLandmark.themeColor : '#38bdf8'
 
     if (spider.isMoving) {
-      // Alternating tetrapod gait while moving: NO stretching or trailing legs!
-      const stepDuration = 0.11
+      // Synchronized tetrapod gait while moving: NO stretching or trailing legs!
+      const stepDuration = 0.12
       let groupNeedsStep = false
 
       LEG_DEFS.forEach((def, i) => {
@@ -1071,7 +1028,6 @@ onMounted(() => {
 
   onUnmounted(() => {
     if (animFrameId) cancelAnimationFrame(animFrameId)
-    if (scrollListener) window.removeEventListener('scroll', scrollListener)
     resizeObserver?.disconnect()
     intersectionObserver?.disconnect()
     landmarks.forEach((lm) => {
