@@ -6,15 +6,14 @@ import { Play, Pause } from '@lucide/vue'
  *
  * Inspired by Slava Rybin's viral creative coding project:
  * - Begins perched at the top of the About Me section.
- * - Procedurally places all 8 legs ONE BY ONE onto the letters of key words:
- *   "Computer Science", "front-end developer", "Vue, Nuxt, and React", "Roomie", "details".
+ * - Perfectly synchronized kinematics: knees stay bent at crisp, natural angles with
+ *   ZERO rubbery stretching.
+ * - Alternating tetrapod gait while walking ensures legs are never dragged or stretched.
+ * - When arriving over a keyword ("Computer Science", "front-end developer", etc.),
+ *   all 8 legs place down ONE BY ONE directly onto the letters of the text.
+ * - Each foot tap emits a crisp micro laser ripple on the text.
  * - Continuously LOOPS through the bio milestones in an autonomous scanning patrol,
- *   while seamlessly respecting user scroll focus when scrolling.
- * - Each foot tap emits a crisp micro laser ripple directly on the text.
- * - Outward-normal 2-bone Inverse Kinematics guarantees clean, elegant knee arcs with
- *   zero knee-crossing or inversion.
- * - Renders screenshot-accurate glowing selection bounding boxes, corner reticles,
- *   OCR tags, shockwaves, and an interconnected geometric citation web.
+ *   while seamlessly adapting to manual user scroll focus.
  */
 
 interface Props {
@@ -49,7 +48,7 @@ function normalizeAngle(angle: number): number {
 }
 
 /**
- * High-precision 2-bone IK with outward normal constraint.
+ * 2-bone IK with outward normal constraint.
  * Guarantees that knees ALWAYS arc outward away from the body center cleanly.
  */
 function solveKnee(
@@ -115,6 +114,7 @@ interface LegDef {
   reach: number
   len1: number
   len2: number
+  group: 0 | 1
 }
 
 interface LegState {
@@ -179,23 +179,22 @@ interface Sparkle {
   life: number
 }
 
-// 8 Spindly, clean arachnid legs with wide reach (~70–80px)
+// 8 Clean arachnid legs with comfortable, un-stretched geometry (reach 48–54px, max 64px)
 const LEG_DEFS: LegDef[] = [
   // Left side (Front to Back)
-  { side: -1, hipAngleOffset: -0.85, hipDist: 11, restAngle: -0.92, reach: 76, len1: 35, len2: 43 },
-  { side: -1, hipAngleOffset: -0.32, hipDist: 10, restAngle: -0.42, reach: 70, len1: 32, len2: 40 },
-  { side: -1, hipAngleOffset: 0.32, hipDist: 10, restAngle: 0.42, reach: 70, len1: 32, len2: 40 },
-  { side: -1, hipAngleOffset: 0.85, hipDist: 11, restAngle: 1.05, reach: 80, len1: 36, len2: 46 },
+  { side: -1, hipAngleOffset: -0.78, hipDist: 10, restAngle: -0.82, reach: 52, len1: 30, len2: 34, group: 0 },
+  { side: -1, hipAngleOffset: -0.26, hipDist: 9,  restAngle: -0.38, reach: 48, len1: 28, len2: 32, group: 1 },
+  { side: -1, hipAngleOffset: 0.26,  hipDist: 9,  restAngle: 0.38,  reach: 48, len1: 28, len2: 32, group: 0 },
+  { side: -1, hipAngleOffset: 0.78,  hipDist: 10, restAngle: 0.92,  reach: 54, len1: 30, len2: 36, group: 1 },
 
   // Right side (Front to Back)
-  { side: 1, hipAngleOffset: 0.85, hipDist: 11, restAngle: 0.92, reach: 76, len1: 35, len2: 43 },
-  { side: 1, hipAngleOffset: 0.32, hipDist: 10, restAngle: 0.42, reach: 70, len1: 32, len2: 40 },
-  { side: 1, hipAngleOffset: -0.32, hipDist: 10, restAngle: -0.42, reach: 70, len1: 32, len2: 40 },
-  { side: 1, hipAngleOffset: -0.85, hipDist: 11, restAngle: -1.05, reach: 80, len1: 36, len2: 46 },
+  { side: 1, hipAngleOffset: 0.78,  hipDist: 10, restAngle: 0.82,  reach: 52, len1: 30, len2: 34, group: 1 },
+  { side: 1, hipAngleOffset: 0.26,  hipDist: 9,  restAngle: 0.38,  reach: 48, len1: 28, len2: 32, group: 0 },
+  { side: 1, hipAngleOffset: -0.26, hipDist: 9,  restAngle: -0.38, reach: 48, len1: 28, len2: 32, group: 1 },
+  { side: 1, hipAngleOffset: -0.78, hipDist: 10, restAngle: -0.92, reach: 54, len1: 30, len2: 36, group: 0 },
 ]
 
-// Step order for rhythmic one-by-one foot placement
-// Front-Left, Front-Right, Mid-Front-L, Mid-Front-R, Mid-Rear-L, Mid-Rear-R, Rear-L, Rear-R
+// Step order for one-by-one foot placement when perching on text
 const STEP_ORDER = [0, 4, 1, 5, 2, 6, 3, 7]
 
 // Ordered milestones down the About Me bio
@@ -370,29 +369,31 @@ onMounted(() => {
   setTimeout(refreshLandmarks, 1500)
 
   // ---------------------------------------------------------------------------
-  // Target Foot Coordinates Directly ON the Words
+  // Target Foot Coordinates Directly ON the Words (No Unnatural Stretches!)
   // ---------------------------------------------------------------------------
   function getLandmarkFootTarget(lm: TextLandmark, legIndex: number): { x: number; y: number } {
     const b = lm.box
-    const w = b.width
-    const h = b.height
+    // Comfortable span within natural leg reach (< 38px from center)
+    const spanX = Math.min(36, b.width * 0.35)
+    const innerX = Math.min(24, b.width * 0.22)
+
     switch (legIndex) {
-      case 0: // Front-Left: top-left letters of the word
-        return { x: b.left + Math.min(24, w * 0.2), y: b.top - 2 }
-      case 4: // Front-Right: top-right letters of the word
-        return { x: b.right - Math.min(24, w * 0.2), y: b.top - 2 }
-      case 1: // Mid-Front-Left: middle-left edge of the word
-        return { x: b.left - 4, y: b.top + h * 0.35 }
-      case 5: // Mid-Front-Right: middle-right edge of the word
-        return { x: b.right + 4, y: b.top + h * 0.35 }
-      case 2: // Mid-Rear-Left: bottom-left letters of the word
-        return { x: b.left + Math.min(28, w * 0.25), y: b.bottom + 2 }
-      case 6: // Mid-Rear-Right: bottom-right letters of the word
-        return { x: b.right - Math.min(28, w * 0.25), y: b.bottom + 2 }
-      case 3: // Rear-Left: anchor behind-left below baseline
-        return { x: b.left - 8, y: b.bottom + 12 }
-      case 7: // Rear-Right: anchor behind-right below baseline
-        return { x: b.right + 8, y: b.bottom + 12 }
+      case 0: // Front-Left: top-left letters
+        return { x: lm.x - innerX, y: b.top - 1 }
+      case 4: // Front-Right: top-right letters
+        return { x: lm.x + innerX, y: b.top - 1 }
+      case 1: // Mid-Front-Left: middle-left letters
+        return { x: lm.x - spanX, y: b.top + b.height * 0.38 }
+      case 5: // Mid-Front-Right: middle-right letters
+        return { x: lm.x + spanX, y: b.top + b.height * 0.38 }
+      case 2: // Mid-Rear-Left: bottom-left letters
+        return { x: lm.x - innerX, y: b.bottom + 1 }
+      case 6: // Mid-Rear-Right: bottom-right letters
+        return { x: lm.x + innerX, y: b.bottom + 1 }
+      case 3: // Rear-Left: anchor behind-left
+        return { x: lm.x - spanX * 0.95, y: b.bottom + 9 }
+      case 7: // Rear-Right: anchor behind-right
+        return { x: lm.x + spanX * 0.95, y: b.bottom + 9 }
       default:
         return { x: lm.x, y: lm.y }
     }
@@ -407,7 +408,8 @@ onMounted(() => {
     vx: 0,
     vy: 0,
     angle: Math.PI / 2, // Facing downward toward bio
-    maxSpeed: 195, // px / sec
+    maxSpeed: 185, // px / sec
+    activeGroup: 0 as 0 | 1,
     isMoving: false,
     pedipalpPhase: 0,
     idlePhase: 0,
@@ -536,7 +538,7 @@ onMounted(() => {
         destY = targetLandmark.y
 
         const distToLandmark = Math.hypot(destX - spider.x, destY - spider.y)
-        if (distToLandmark <= 12) {
+        if (distToLandmark <= 10) {
           milestoneDwellTime += dt
           const targetDwell = currentMilestoneIndex === landmarks.length - 1 ? 2.4 : 1.8
 
@@ -592,15 +594,15 @@ onMounted(() => {
     const dx = destX - spider.x
     const dy = destY - spider.y
     const dist = Math.hypot(dx, dy)
-    const isLandedOnTarget = targetLandmark !== null && dist <= 12
+    const isLandedOnTarget = targetLandmark !== null && dist <= 10
 
-    if (dist > 7) {
+    if (dist > 6) {
       spider.isMoving = true
       const targetAngle = Math.atan2(dy, dx)
       const angleDiff = normalizeAngle(targetAngle - spider.angle)
       spider.angle += angleDiff * Math.min(dt * 7.5, 1)
 
-      const speedFactor = clamp(dist / 40, 0.22, 1.0)
+      const speedFactor = clamp(dist / 38, 0.22, 1.0)
       const currentSpeed = spider.maxSpeed * speedFactor
       spider.vx = Math.cos(spider.angle) * currentSpeed
       spider.vy = Math.sin(spider.angle) * currentSpeed
@@ -623,92 +625,138 @@ onMounted(() => {
         : 'Standing by at perch'
     }
 
-    // 3. ONE-BY-ONE Sequential Leg Stepping onto Text
-    const stepDuration = 0.09
+    // 3. Clean Kinematic Stepping (Gait while moving; One-by-One when landing on text)
+    const activeColor = targetLandmark ? targetLandmark.themeColor : '#38bdf8'
 
-    // Check if any leg is currently mid-step
-    let activeSteppingLegIndex = -1
-    for (let i = 0; i < legs.length; i++) {
-      if (legs[i].isStepping) {
-        activeSteppingLegIndex = i
-        break
-      }
-    }
+    if (spider.isMoving) {
+      // Alternating tetrapod gait while moving: NO stretching or trailing legs!
+      const stepDuration = 0.11
+      let groupNeedsStep = false
 
-    // If no leg is currently stepping, find the next leg in STEP_ORDER that needs to step
-    if (activeSteppingLegIndex === -1) {
-      for (let s = 0; s < STEP_ORDER.length; s++) {
-        const i = STEP_ORDER[s]
-        const def = LEG_DEFS[i]
-        const leg = legs[i]
-
-        let idealX: number
-        let idealY: number
-
-        if (isLandedOnTarget && targetLandmark) {
-          // Precision foot target DIRECTLY on the text!
-          const target = getLandmarkFootTarget(targetLandmark, i)
-          idealX = target.x
-          idealY = target.y
-        } else {
+      LEG_DEFS.forEach((def, i) => {
+        if (def.group === spider.activeGroup) {
           const hipX =
             spider.x + Math.cos(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
           const hipY =
             spider.y + Math.sin(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
           const idealAngle = spider.angle + def.restAngle * def.side
-          const leadX = spider.vx * 0.16
-          const leadY = spider.vy * 0.16
-          idealX = hipX + Math.cos(idealAngle) * def.reach + leadX
-          idealY = hipY + Math.sin(idealAngle) * def.reach + leadY
+          const idealX = hipX + Math.cos(idealAngle) * def.reach
+          const idealY = hipY + Math.sin(idealAngle) * def.reach
+
+          const leg = legs[i]
+          const footDist = Math.hypot(idealX - leg.currentFootX, idealY - leg.currentFootY)
+          if (footDist > 16) {
+            groupNeedsStep = true
+          }
         }
+      })
 
-        const footDist = Math.hypot(idealX - leg.currentFootX, idealY - leg.currentFootY)
-        const threshold = isLandedOnTarget ? 5 : (spider.isMoving ? 18 : 12)
+      if (groupNeedsStep) {
+        LEG_DEFS.forEach((def, i) => {
+          if (def.group === spider.activeGroup) {
+            const leg = legs[i]
+            if (!leg.isStepping) {
+              const hipX =
+                spider.x + Math.cos(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
+              const hipY =
+                spider.y + Math.sin(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
+              const idealAngle = spider.angle + def.restAngle * def.side
+              const leadX = spider.vx * 0.14
+              const leadY = spider.vy * 0.14
 
-        if (footDist > threshold) {
-          // Trigger step for THIS single leg!
-          leg.startFootX = leg.currentFootX
-          leg.startFootY = leg.currentFootY
-          leg.targetFootX = idealX
-          leg.targetFootY = idealY
-          leg.stepProgress = 0
-          leg.isStepping = true
-          break // Step ONE BY ONE!
+              leg.startFootX = leg.currentFootX
+              leg.startFootY = leg.currentFootY
+              leg.targetFootX = hipX + Math.cos(idealAngle) * def.reach + leadX
+              leg.targetFootY = hipY + Math.sin(idealAngle) * def.reach + leadY
+              leg.stepProgress = 0
+              leg.isStepping = true
+            }
+          }
+        })
+      }
+
+      let allGroupDone = true
+      legs.forEach((leg) => {
+        if (leg.isStepping) {
+          leg.stepProgress += dt / stepDuration
+          if (leg.stepProgress >= 1) {
+            leg.stepProgress = 1
+            leg.isStepping = false
+            leg.currentFootX = leg.targetFootX
+            leg.currentFootY = leg.targetFootY
+          } else {
+            allGroupDone = false
+            const t = leg.stepProgress
+            const smoothT = t * t * (3 - 2 * t)
+            const lift = Math.sin(Math.PI * t) * 11
+            leg.currentFootX = lerp(leg.startFootX, leg.targetFootX, smoothT)
+            leg.currentFootY = lerp(leg.startFootY, leg.targetFootY, smoothT) - lift
+          }
+        }
+      })
+
+      if (allGroupDone && groupNeedsStep) {
+        spider.activeGroup = spider.activeGroup === 0 ? 1 : 0
+      }
+    } else if (isLandedOnTarget && targetLandmark) {
+      // Body is stationary over the word: legs place down ONE BY ONE onto the text!
+      const stepDuration = 0.08
+      let currentlyStepping = false
+
+      for (let i = 0; i < legs.length; i++) {
+        if (legs[i].isStepping) {
+          currentlyStepping = true
+          break
         }
       }
+
+      if (!currentlyStepping) {
+        for (let s = 0; s < STEP_ORDER.length; s++) {
+          const i = STEP_ORDER[s]
+          const leg = legs[i]
+          const target = getLandmarkFootTarget(targetLandmark, i)
+          const footDist = Math.hypot(target.x - leg.currentFootX, target.y - leg.currentFootY)
+
+          if (footDist > 4) {
+            leg.startFootX = leg.currentFootX
+            leg.startFootY = leg.currentFootY
+            leg.targetFootX = target.x
+            leg.targetFootY = target.y
+            leg.stepProgress = 0
+            leg.isStepping = true
+            break // Step ONE BY ONE!
+          }
+        }
+      }
+
+      legs.forEach((leg) => {
+        if (leg.isStepping) {
+          leg.stepProgress += dt / stepDuration
+          if (leg.stepProgress >= 1) {
+            leg.stepProgress = 1
+            leg.isStepping = false
+            leg.currentFootX = leg.targetFootX
+            leg.currentFootY = leg.targetFootY
+
+            // Micro laser ripple on the letter
+            footRipples.push({
+              x: leg.currentFootX,
+              y: leg.currentFootY,
+              radius: 1.5,
+              maxRadius: 6,
+              color: activeColor,
+              alpha: 0.85,
+            })
+          } else {
+            const t = leg.stepProgress
+            const smoothT = t * t * (3 - 2 * t)
+            const lift = Math.sin(Math.PI * t) * 8
+            leg.currentFootX = lerp(leg.startFootX, leg.targetFootX, smoothT)
+            leg.currentFootY = lerp(leg.startFootY, leg.targetFootY, smoothT) - lift
+          }
+        }
+      })
     }
-
-    // Active theme color
-    const activeColor = targetLandmark ? targetLandmark.themeColor : '#38bdf8'
-
-    // Update stepping animation for whichever leg is mid-step
-    legs.forEach((leg) => {
-      if (leg.isStepping) {
-        leg.stepProgress += dt / stepDuration
-        if (leg.stepProgress >= 1) {
-          leg.stepProgress = 1
-          leg.isStepping = false
-          leg.currentFootX = leg.targetFootX
-          leg.currentFootY = leg.targetFootY
-
-          // Micro laser ripple on the letter when foot taps down!
-          footRipples.push({
-            x: leg.currentFootX,
-            y: leg.currentFootY,
-            radius: 1.5,
-            maxRadius: 6.5,
-            color: activeColor,
-            alpha: 0.85,
-          })
-        } else {
-          const t = leg.stepProgress
-          const smoothT = t * t * (3 - 2 * t)
-          const lift = Math.sin(Math.PI * t) * (isLandedOnTarget ? 9 : 14)
-          leg.currentFootX = lerp(leg.startFootX, leg.targetFootX, smoothT)
-          leg.currentFootY = lerp(leg.startFootY, leg.targetFootY, smoothT) - lift
-        }
-      }
-    })
 
     // -------------------------------------------------------------------------
     // Canvas Rendering
@@ -857,7 +905,7 @@ onMounted(() => {
     // 4. Micro Foot Contact Ripples on the Text
     for (let i = footRipples.length - 1; i >= 0; i--) {
       const fr = footRipples[i]
-      fr.radius += dt * 20
+      fr.radius += dt * 18
       fr.alpha -= dt * 3.0
       if (fr.alpha <= 0) {
         footRipples.splice(i, 1)
@@ -900,7 +948,7 @@ onMounted(() => {
     ctx.shadowBlur = 8
     ctx.shadowOffsetY = 3
 
-    // Render 8 Clean Legs with Outward Knee Arcs
+    // Render 8 Clean Legs with Outward Knee Arcs (NEVER stretched!)
     LEG_DEFS.forEach((def, i) => {
       const leg = legs[i]
       const hipX = spider.x + Math.cos(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
@@ -917,12 +965,12 @@ onMounted(() => {
         def.len2,
       )
 
-      // Femur (upper limb segment) - sleek metallic slate
+      // Femur (upper limb segment) - clean metallic slate
       ctx.beginPath()
       ctx.moveTo(hipX, hipY)
       ctx.lineTo(ik.kneeX, ik.kneeY)
-      ctx.strokeStyle = 'rgba(203, 213, 225, 0.9)'
-      ctx.lineWidth = 1.8
+      ctx.strokeStyle = 'rgba(203, 213, 225, 0.95)'
+      ctx.lineWidth = 2.0
       ctx.lineCap = 'round'
       ctx.stroke()
 
@@ -934,7 +982,7 @@ onMounted(() => {
       ctx.lineWidth = 1.4
       ctx.stroke()
 
-      // Knee joint - micro white node
+      // Knee joint - crisp micro white node
       ctx.beginPath()
       ctx.arc(ik.kneeX, ik.kneeY, 1.8, 0, Math.PI * 2)
       ctx.fillStyle = '#ffffff'
@@ -953,7 +1001,7 @@ onMounted(() => {
       // Luminous targeting reticle under foot when landed on word
       if (isLandedOnTarget) {
         ctx.beginPath()
-        ctx.arc(ik.footX, ik.footY, 3.8, 0, Math.PI * 2)
+        ctx.arc(ik.footX, ik.footY, 3.6, 0, Math.PI * 2)
         ctx.strokeStyle = activeColor
         ctx.lineWidth = 0.9
         ctx.globalAlpha = 0.65
