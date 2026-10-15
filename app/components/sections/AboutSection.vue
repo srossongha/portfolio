@@ -97,7 +97,11 @@ useGsapContext(root, () => {
         <div class="lg:col-span-7">
           <!-- Words mode: we only need per-word targets, not per-letter. Using
                chars here would create ~700 spans for no visual benefit. -->
-          <div class="about-bio space-y-6">
+          <div
+            class="about-bio space-y-6"
+            data-crawler-target="Core Stack: Vue, Nuxt & React"
+            data-crawler-type="stack"
+          >
             <SplitText
               v-for="(paragraph, i) in profile.bio"
               :key="i"
@@ -110,7 +114,11 @@ useGsapContext(root, () => {
           </div>
 
           <!-- CV Download card & actions -->
-          <div class="border-border/70 bg-card/40 hover:border-brand/40 mt-12 rounded-2xl border p-5 backdrop-blur-md transition-all sm:p-6">
+          <div
+            class="about-cv-card border-border/70 bg-card/40 hover:border-brand/40 mt-12 rounded-2xl border p-5 backdrop-blur-md transition-all sm:p-6"
+            data-crawler-target="Curriculum Vitae (PDF)"
+            data-crawler-type="cv"
+          >
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div class="flex items-center gap-3.5">
                 <div class="bg-brand/10 border-brand/20 text-brand flex size-11 shrink-0 items-center justify-center rounded-xl border">
@@ -168,7 +176,12 @@ useGsapContext(root, () => {
           </div>
 
           <!-- Social links -->
-          <RevealOnScroll :stagger="0.08" class="mt-8 flex flex-wrap gap-2.5">
+          <RevealOnScroll
+            :stagger="0.08"
+            class="about-socials mt-8 flex flex-wrap gap-2.5"
+            data-crawler-target="Connect: GitHub & Telegram"
+            data-crawler-type="social"
+          >
             <a
               v-for="social in socials"
               :key="social.href"
@@ -193,7 +206,14 @@ useGsapContext(root, () => {
 
             <div class="flex-1">
               <!-- Portrait -->
-              <TiltCard :max="7" :lift="18" radius="rounded-2xl" class="mb-10">
+              <TiltCard
+                :max="7"
+                :lift="18"
+                radius="rounded-2xl"
+                class="about-portrait mb-10"
+                data-crawler-target="Portrait: Sros Songha"
+                data-crawler-type="profile"
+              >
                 <div class="border-border/60 relative aspect-4/5 overflow-hidden rounded-2xl border">
                   <img
                     src="/images/profile.jpeg"
@@ -218,7 +238,12 @@ useGsapContext(root, () => {
               </TiltCard>
 
               <!-- Principles -->
-              <RevealOnScroll :stagger="0.1" class="space-y-6">
+              <RevealOnScroll
+                :stagger="0.1"
+                class="about-principles space-y-6"
+                data-crawler-target="Principles: Ship It"
+                data-crawler-type="principles"
+              >
                 <div v-for="principle in principles" :key="principle.title">
                   <h3 class="font-mono text-[11px] tracking-[0.25em] uppercase">
                     <span class="text-brand">→ </span>{{ principle.title }}
