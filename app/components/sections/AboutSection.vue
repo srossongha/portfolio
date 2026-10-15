@@ -241,61 +241,36 @@ useGsapContext(root, () => {
 <style scoped>
 :deep(.split-word.crawler-highlight-cyan) {
   color: #38bdf8 !important;
-  background: rgba(14, 165, 233, 0.18);
-  border: 1px solid rgba(56, 189, 248, 0.75);
-  border-radius: 4px;
-  padding: 0 4px;
-  margin: 0 1px;
-  box-shadow: 0 0 14px rgba(56, 189, 248, 0.4);
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.65);
   font-weight: 600;
-  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: color 0.3s ease, text-shadow 0.3s ease;
 }
 
 :deep(.split-word.crawler-highlight-gold) {
   color: #facc15 !important;
-  background: rgba(234, 179, 8, 0.18);
-  border: 1px solid rgba(250, 204, 21, 0.75);
-  border-radius: 4px;
-  padding: 0 4px;
-  margin: 0 1px;
-  box-shadow: 0 0 14px rgba(250, 204, 21, 0.4);
+  text-shadow: 0 0 10px rgba(250, 204, 21, 0.65);
   font-weight: 600;
-  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: color 0.3s ease, text-shadow 0.3s ease;
 }
 
 :deep(.split-word.crawler-highlight-purple) {
   color: #c084fc !important;
-  background: rgba(168, 85, 247, 0.18);
-  border: 1px solid rgba(192, 132, 252, 0.75);
-  border-radius: 4px;
-  padding: 0 4px;
-  margin: 0 1px;
-  box-shadow: 0 0 14px rgba(168, 85, 247, 0.4);
+  text-shadow: 0 0 10px rgba(192, 132, 252, 0.65);
   font-weight: 600;
-  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: color 0.3s ease, text-shadow 0.3s ease;
 }
 
 :deep(.split-word.crawler-highlight-emerald) {
   color: #34d399 !important;
-  background: rgba(16, 185, 129, 0.18);
-  border: 1px solid rgba(52, 211, 153, 0.75);
-  border-radius: 4px;
-  padding: 0 4px;
-  margin: 0 1px;
-  box-shadow: 0 0 14px rgba(52, 211, 153, 0.4);
+  text-shadow: 0 0 10px rgba(52, 211, 153, 0.65);
   font-weight: 600;
-  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: color 0.3s ease, text-shadow 0.3s ease;
 }
 
 :deep(.split-word.crawler-highlight-rose) {
   color: #fb7185 !important;
-  background: rgba(244, 63, 94, 0.18);
-  border: 1px solid rgba(251, 113, 133, 0.75);
-  border-radius: 4px;
-  padding: 0 4px;
-  margin: 0 1px;
-  box-shadow: 0 0 14px rgba(244, 63, 94, 0.4);
+  text-shadow: 0 0 10px rgba(251, 113, 133, 0.65);
   font-weight: 600;
-  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: color 0.3s ease, text-shadow 0.3s ease;
 }
 </style>

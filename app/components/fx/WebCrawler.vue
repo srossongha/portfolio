@@ -2,24 +2,17 @@
 import { Play, Pause } from '@lucide/vue'
 
 /**
- * Scroll-Driven "Literal Web Crawler" Spider.
+ * Autonomous AI Web Crawler Spider.
  *
- * Inspired by Slava Rybin's viral creative coding concept:
- * 1. The spider starts perched at the top of the "About me" section.
- * 2. As the user scrolls down, the crawler automatically crawls downwards from
- *    top to bottom through the bio text.
- * 3. Its long, spindly legs specifically step onto and land on key important words:
- *    - "Computer Science" (Cyan OCR box)
- *    - "front-end developer" (Brand Gold OCR box)
- *    - "Vue, Nuxt, and React" (Purple OCR box)
- *    - "Roomie" (Emerald OCR box)
- *    - "details" (Rose OCR box)
- * 4. When a word is reached, it triggers the viral indexing effect:
- *    - The word lights up with a glowing bounding box highlight and colored border.
- *    - High-tech corner reticles [ ] and node tags appear.
- *    - An expanding shockwave ring and cyber sparks emit from the letters.
- * 5. A persistent geometric web graph connects visited words into an interconnected
- *    data web, with active silk strands attached to the spider's spinneret.
+ * Inspired by Slava Rybin's viral creative coding project:
+ * - Begins perched at the top of the About Me section.
+ * - Smoothly navigates and crawls down from milestone to milestone as the user scrolls.
+ * - Uses 2-bone Inverse Kinematics with high-arcing knees and an alternating tetrapod gait.
+ * - Precision-indexes key landmarks ("Computer Science", "front-end developer",
+ *   "Vue, Nuxt, and React", "Roomie", "details").
+ * - When landed, renders screenshot-accurate glowing selection bounding boxes with
+ *   corner reticles, OCR tags, shockwaves, and an interconnected geometric citation web.
+ * - Zero layout shift on bio text; smooth arrival damping without oscillation.
  */
 
 interface Props {
@@ -32,7 +25,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const isPaused = ref(false)
-const currentStatus = ref('Scroll to guide crawler')
+const currentStatus = ref('Standing by at perch')
 const reduced = useReducedMotion()
 
 // -----------------------------------------------------------------------------
@@ -53,9 +46,6 @@ function normalizeAngle(angle: number): number {
   return angle
 }
 
-/**
- * 2-bone Inverse Kinematics with high arcing knees.
- */
 function solveIK(
   hipX: number,
   hipY: number,
@@ -89,7 +79,7 @@ function solveIK(
 }
 
 // -----------------------------------------------------------------------------
-// Spider Data Structures & Landmark Definitions
+// Spider Data Structures
 // -----------------------------------------------------------------------------
 
 interface LegDef {
@@ -119,7 +109,7 @@ interface TextLandmark {
   id: string
   name: string
   tag: string
-  words: string[]
+  phraseWords: string[]
   highlightClass: string
   themeColor: string
   elements: HTMLElement[]
@@ -133,7 +123,6 @@ interface TextLandmark {
     width: number
     height: number
   }
-  scrollTriggerProgress: number
   isLanded: boolean
   landedAnimTime: number
 }
@@ -158,75 +147,62 @@ interface Sparkle {
   life: number
 }
 
-interface WebEdge {
-  fromX: number
-  fromY: number
-  toX: number
-  toY: number
-  color: string
-}
-
-// 8 Spindly, long arachnid legs spanning across text lines
+// 8 Spindly, long arachnid legs with realistic reach (~75–84px)
 const LEG_DEFS: LegDef[] = [
   // Left side (Front to Back)
-  { side: -1, hipAngleOffset: -0.85, hipDist: 11, restAngle: -0.92, reach: 82, len1: 38, len2: 46, bendDirection: -1, group: 0 },
-  { side: -1, hipAngleOffset: -0.32, hipDist: 10, restAngle: -0.44, reach: 72, len1: 34, len2: 40, bendDirection: -1, group: 1 },
-  { side: -1, hipAngleOffset: 0.32, hipDist: 10, restAngle: 0.44, reach: 72, len1: 34, len2: 40, bendDirection: 1, group: 0 },
-  { side: -1, hipAngleOffset: 0.85, hipDist: 11, restAngle: 1.05, reach: 86, len1: 40, len2: 48, bendDirection: 1, group: 1 },
+  { side: -1, hipAngleOffset: -0.85, hipDist: 11, restAngle: -0.92, reach: 80, len1: 36, len2: 44, bendDirection: -1, group: 0 },
+  { side: -1, hipAngleOffset: -0.32, hipDist: 10, restAngle: -0.42, reach: 72, len1: 32, len2: 40, bendDirection: -1, group: 1 },
+  { side: -1, hipAngleOffset: 0.32, hipDist: 10, restAngle: 0.42, reach: 72, len1: 32, len2: 40, bendDirection: 1, group: 0 },
+  { side: -1, hipAngleOffset: 0.85, hipDist: 11, restAngle: 1.05, reach: 84, len1: 38, len2: 46, bendDirection: 1, group: 1 },
 
   // Right side (Front to Back)
-  { side: 1, hipAngleOffset: 0.85, hipDist: 11, restAngle: 0.92, reach: 82, len1: 38, len2: 46, bendDirection: 1, group: 1 },
-  { side: 1, hipAngleOffset: 0.32, hipDist: 10, restAngle: 0.44, reach: 72, len1: 34, len2: 40, bendDirection: 1, group: 0 },
-  { side: 1, hipAngleOffset: -0.32, hipDist: 10, restAngle: -0.44, reach: 72, len1: 34, len2: 40, bendDirection: -1, group: 1 },
-  { side: 1, hipAngleOffset: -0.85, hipDist: 11, restAngle: -1.05, reach: 86, len1: 40, len2: 48, bendDirection: -1, group: 0 },
+  { side: 1, hipAngleOffset: 0.85, hipDist: 11, restAngle: 0.92, reach: 80, len1: 36, len2: 44, bendDirection: 1, group: 1 },
+  { side: 1, hipAngleOffset: 0.32, hipDist: 10, restAngle: 0.42, reach: 72, len1: 32, len2: 40, bendDirection: 1, group: 0 },
+  { side: 1, hipAngleOffset: -0.32, hipDist: 10, restAngle: -0.42, reach: 72, len1: 32, len2: 40, bendDirection: -1, group: 1 },
+  { side: 1, hipAngleOffset: -0.85, hipDist: 11, restAngle: -1.05, reach: 84, len1: 38, len2: 46, bendDirection: -1, group: 0 },
 ]
 
-// Landmarks with distinctive colors matching the screenshot
+// Ordered sequence of landmarks down the About Me bio
 const LANDMARK_CONFIGS = [
   {
     id: 'cs',
     name: 'Computer Science',
     tag: 'NODE_01 // CS',
-    words: ['computer', 'science'],
+    phraseWords: ['computer', 'science'],
     highlightClass: 'crawler-highlight-cyan',
     themeColor: '#38bdf8',
-    progress: 0.14,
   },
   {
     id: 'frontend',
     name: 'Front-end Developer',
     tag: 'NODE_02 // FE_DEV',
-    words: ['front-end', 'developer'],
+    phraseWords: ['front-end', 'developer'],
     highlightClass: 'crawler-highlight-gold',
     themeColor: '#facc15',
-    progress: 0.35,
   },
   {
     id: 'stack',
-    name: 'Vue, Nuxt, React',
+    name: 'Core Stack',
     tag: 'NODE_03 // CORE_STACK',
-    words: ['vue', 'nuxt', 'react'],
+    phraseWords: ['vue,', 'nuxt,', 'and', 'react'],
     highlightClass: 'crawler-highlight-purple',
     themeColor: '#c084fc',
-    progress: 0.55,
   },
   {
     id: 'roomie',
     name: 'Roomie (ស្រុកខ្ញុំ)',
     tag: 'NODE_04 // ROOMIE',
-    words: ['roomie'],
+    phraseWords: ['roomie'],
     highlightClass: 'crawler-highlight-emerald',
     themeColor: '#34d399',
-    progress: 0.75,
   },
   {
     id: 'details',
     name: 'Craft & Details',
     tag: 'NODE_05 // DETAILS',
-    words: ['details'],
+    phraseWords: ['details'],
     highlightClass: 'crawler-highlight-rose',
     themeColor: '#fb7185',
-    progress: 0.92,
   },
 ]
 
@@ -254,6 +230,10 @@ onMounted(() => {
   let height = container.clientHeight
   let dpr = Math.min(window.devicePixelRatio || 1, 2)
 
+  let landmarks: TextLandmark[] = []
+  let startX = width * 0.22
+  let startY = 90
+
   function updateSize() {
     if (!container || !canvas || !ctx) return
     width = container.clientWidth
@@ -268,35 +248,42 @@ onMounted(() => {
   resizeObserver = new ResizeObserver(() => updateSize())
   resizeObserver.observe(container)
 
-  let landmarks: TextLandmark[] = []
-  let startX = width * 0.22
-  let startY = 110
+  // Find exact contiguous word sequence in the DOM
+  function findPhraseElements(allEls: HTMLElement[], words: string[]): HTMLElement[] {
+    for (let i = 0; i <= allEls.length - words.length; i++) {
+      let match = true
+      for (let j = 0; j < words.length; j++) {
+        const text = allEls[i + j].textContent?.trim().toLowerCase() || ''
+        if (!text.includes(words[j].toLowerCase())) {
+          match = false
+          break
+        }
+      }
+      if (match) {
+        return allEls.slice(i, i + words.length)
+      }
+    }
+    return []
+  }
 
   function refreshLandmarks() {
     if (!container) return
     const containerRect = container.getBoundingClientRect()
     const allWordEls = Array.from(container.querySelectorAll<HTMLElement>('.about-bio .split-word'))
+    if (allWordEls.length === 0) return
 
-    // Initial position at top of About Me (above the first bio paragraph)
+    // Position initial perch above the first bio line
     const bioEl = container.querySelector('.about-bio') as HTMLElement | null
     if (bioEl) {
       const bioRect = bioEl.getBoundingClientRect()
       startX = bioRect.left - containerRect.left + 50
-      startY = Math.max(50, bioRect.top - containerRect.top - 42)
+      startY = Math.max(45, bioRect.top - containerRect.top - 40)
     }
 
     const list: TextLandmark[] = []
 
     LANDMARK_CONFIGS.forEach((cfg) => {
-      const matchedEls: HTMLElement[] = []
-      cfg.words.forEach((q) => {
-        const found = allWordEls.filter((w) =>
-          w.textContent?.trim().toLowerCase().includes(q.toLowerCase()),
-        )
-        found.forEach((el) => {
-          if (!matchedEls.includes(el)) matchedEls.push(el)
-        })
-      })
+      const matchedEls = findPhraseElements(allWordEls, cfg.phraseWords)
 
       if (matchedEls.length > 0) {
         let minLeft = Infinity
@@ -312,27 +299,29 @@ onMounted(() => {
           maxBottom = Math.max(maxBottom, r.bottom - containerRect.top)
         })
 
+        // Retain previous landed state if already registered
+        const existing = landmarks.find((lm) => lm.id === cfg.id)
+
         list.push({
           id: cfg.id,
           name: cfg.name,
           tag: cfg.tag,
-          words: cfg.words,
+          phraseWords: cfg.phraseWords,
           highlightClass: cfg.highlightClass,
           themeColor: cfg.themeColor,
           elements: matchedEls,
           x: (minLeft + maxRight) / 2,
           y: (minTop + maxBottom) / 2,
           box: {
-            left: minLeft - 3,
-            right: maxRight + 3,
-            top: minTop - 2,
-            bottom: maxBottom + 2,
-            width: maxRight - minLeft + 6,
-            height: maxBottom - minTop + 4,
+            left: minLeft - 5,
+            right: maxRight + 5,
+            top: minTop - 3,
+            bottom: maxBottom + 3,
+            width: maxRight - minLeft + 10,
+            height: maxBottom - minTop + 6,
           },
-          scrollTriggerProgress: cfg.progress,
-          isLanded: false,
-          landedAnimTime: 0,
+          isLanded: existing ? existing.isLanded : false,
+          landedAnimTime: existing ? existing.landedAnimTime : 0,
         })
       }
     })
@@ -340,25 +329,27 @@ onMounted(() => {
     landmarks = list
   }
 
-  setTimeout(refreshLandmarks, 300)
-  setTimeout(refreshLandmarks, 1200)
+  setTimeout(refreshLandmarks, 150)
+  setTimeout(refreshLandmarks, 600)
+  setTimeout(refreshLandmarks, 1500)
 
   // ---------------------------------------------------------------------------
-  // Spider Initial State: Perched at top of About Me
+  // Spider Physics & Kinematic State
   // ---------------------------------------------------------------------------
   const spider = {
     x: startX,
     y: startY,
     vx: 0,
     vy: 0,
-    angle: Math.PI / 2, // Facing downwards towards bio
+    angle: Math.PI / 2, // Facing downward toward bio
+    maxSpeed: 210, // px / sec
     activeGroup: 0 as 0 | 1,
-    state: 'perched' as 'perched' | 'crawling' | 'landed',
-    speed: 3.4,
+    isMoving: false,
     pedipalpPhase: 0,
+    idlePhase: 0,
   }
 
-  // Initialize 8 legs
+  // Initialize legs
   const legs: LegState[] = LEG_DEFS.map((def) => {
     const hipX = spider.x + Math.cos(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
     const hipY = spider.y + Math.sin(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
@@ -379,22 +370,29 @@ onMounted(() => {
 
   const shockwaves: Shockwave[] = []
   const sparkles: Sparkle[] = []
-  const webEdges: WebEdge[] = []
-  const visitedLandmarks: TextLandmark[] = []
 
   // ---------------------------------------------------------------------------
-  // Scroll Progress Calculation
+  // Scroll Target Milestone Mapping
   // ---------------------------------------------------------------------------
-  function getScrollFraction(): number {
-    if (!container) return 0
-    const rect = container.getBoundingClientRect()
+  function getActiveLandmarkIndex(): number {
+    if (!container || landmarks.length === 0) return -1
+    const containerRect = container.getBoundingClientRect()
     const windowH = window.innerHeight
 
-    // Starts when top of #about is well inside viewport
-    const startY = windowH * 0.72
-    const totalDist = rect.height * 0.62
-    const dist = startY - rect.top
-    return clamp(dist / Math.max(totalDist, 1), 0, 1)
+    // Before #about enters readable focus
+    if (containerRect.top > windowH * 0.65) return -1
+
+    // Viewport focal line relative to container top
+    const viewportFocusY = windowH * 0.48 - containerRect.top
+
+    let targetIdx = -1
+    for (let i = 0; i < landmarks.length; i++) {
+      if (viewportFocusY >= landmarks[i].y - 85) {
+        targetIdx = i
+      }
+    }
+
+    return targetIdx
   }
 
   let isVisibleOnScreen = true
@@ -417,147 +415,101 @@ onMounted(() => {
 
     const dt = Math.min((currentTime - lastTime) / 1000, 0.08)
     lastTime = currentTime
-    spider.pedipalpPhase += dt * 6
+    spider.pedipalpPhase += dt * 7
+    spider.idlePhase += dt * 2.5
 
-    // 1. Determine Target Destination based on Scroll Fraction
-    const scrollProg = getScrollFraction()
+    // 1. Determine Target Destination
+    const activeIdx = getActiveLandmarkIndex()
 
     let destX = startX
     let destY = startY
     let targetLandmark: TextLandmark | null = null
 
-    if (landmarks.length > 0) {
-      if (scrollProg < landmarks[0].scrollTriggerProgress) {
-        // Top perch
-        destX = startX
-        destY = startY
-        targetLandmark = null
-      } else {
-        // Find highest landmark passed
-        for (let i = landmarks.length - 1; i >= 0; i--) {
-          if (scrollProg >= landmarks[i].scrollTriggerProgress) {
-            targetLandmark = landmarks[i]
-            destX = targetLandmark.x
-            destY = targetLandmark.y
-            break
-          }
-        }
-      }
+    if (activeIdx >= 0 && activeIdx < landmarks.length) {
+      targetLandmark = landmarks[activeIdx]
+      destX = targetLandmark.x
+      destY = targetLandmark.y
     }
 
-    // 2. Spider Navigation & Crawling
-    const dx = destX - spider.x
-    const dy = destY - spider.y
-    const distToDest = Math.hypot(dx, dy)
+    // Index and activate all landmarks up to activeIdx
+    landmarks.forEach((lm, idx) => {
+      if (idx <= activeIdx && !lm.isLanded) {
+        lm.isLanded = true
+        lm.landedAnimTime = 0
 
-    if (distToDest > 18) {
-      spider.state = 'crawling'
-      const desiredAngle = Math.atan2(dy, dx)
-      const angleDiff = normalizeAngle(desiredAngle - spider.angle)
-      spider.angle += angleDiff * Math.min(dt * 7.5, 1)
+        // Highlight DOM words (color + glow) without layout shift
+        lm.elements.forEach((el) => el.classList.add(lm.highlightClass))
 
-      const moveSpeed = spider.speed * 60 * dt
-      spider.vx = Math.cos(spider.angle) * moveSpeed
-      spider.vy = Math.sin(spider.angle) * moveSpeed
-      spider.x += spider.vx
-      spider.y += spider.vy
+        // Trigger impact shockwave ring
+        shockwaves.push({
+          x: lm.x,
+          y: lm.y,
+          radius: 8,
+          maxRadius: 60,
+          color: lm.themeColor,
+          alpha: 1,
+        })
 
-      currentStatus.value = targetLandmark
-        ? `Crawling to: ${targetLandmark.name}`
-        : 'Perched at top'
-    } else {
-      spider.vx = 0
-      spider.vy = 0
-
-      if (targetLandmark) {
-        spider.state = 'landed'
-        currentStatus.value = `Indexing: ${targetLandmark.name}`
-
-        // Trigger landmark activation
-        if (!targetLandmark.isLanded) {
-          targetLandmark.isLanded = true
-          targetLandmark.landedAnimTime = 0
-
-          // Apply multi-color highlight class matching the viral video
-          targetLandmark.elements.forEach((el) => {
-            el.classList.add(targetLandmark!.highlightClass)
-          })
-
-          // Add to visited nodes list
-          if (!visitedLandmarks.includes(targetLandmark)) {
-            // Create web lines from previous visited landmarks to this one
-            if (visitedLandmarks.length > 0) {
-              const prev = visitedLandmarks[visitedLandmarks.length - 1]
-              webEdges.push({
-                fromX: prev.x,
-                fromY: prev.y,
-                toX: targetLandmark.x,
-                toY: targetLandmark.y,
-                color: targetLandmark.themeColor,
-              })
-              // Cross-connection for mesh aesthetic
-              if (visitedLandmarks.length > 1) {
-                const first = visitedLandmarks[0]
-                webEdges.push({
-                  fromX: first.x,
-                  fromY: first.y,
-                  toX: targetLandmark.x,
-                  toY: targetLandmark.y,
-                  color: 'rgba(255, 255, 255, 0.25)',
-                })
-              }
-            } else {
-              // Connect initial web line from perch
-              webEdges.push({
-                fromX: startX,
-                fromY: startY,
-                toX: targetLandmark.x,
-                toY: targetLandmark.y,
-                color: targetLandmark.themeColor,
-              })
-            }
-            visitedLandmarks.push(targetLandmark)
-          }
-
-          // Trigger shockwave ring
-          shockwaves.push({
-            x: targetLandmark.x,
-            y: targetLandmark.y,
-            radius: 8,
-            maxRadius: 65,
-            color: targetLandmark.themeColor,
+        // Emit micro-sparks
+        for (let s = 0; s < 10; s++) {
+          const spAngle = Math.random() * Math.PI * 2
+          const spSpeed = 20 + Math.random() * 45
+          sparkles.push({
+            x: lm.x + (Math.random() - 0.5) * lm.box.width,
+            y: lm.box.bottom,
+            vx: Math.cos(spAngle) * spSpeed,
+            vy: -15 - Math.random() * 30,
+            size: 1.4 + Math.random() * 1.8,
+            color: lm.themeColor,
             alpha: 1,
+            life: 0.6 + Math.random() * 0.4,
           })
-
-          // Emit sparks
-          for (let s = 0; s < 12; s++) {
-            const spAngle = Math.random() * Math.PI * 2
-            const spSpeed = 25 + Math.random() * 55
-            sparkles.push({
-              x: targetLandmark.x + (Math.random() - 0.5) * targetLandmark.box.width,
-              y: targetLandmark.box.bottom,
-              vx: Math.cos(spAngle) * spSpeed,
-              vy: -20 - Math.random() * 35,
-              size: 1.5 + Math.random() * 2,
-              color: targetLandmark.themeColor,
-              alpha: 1,
-              life: 0.65 + Math.random() * 0.45,
-            })
-          }
         }
-      } else {
-        spider.state = 'perched'
-        currentStatus.value = 'Perched at top'
+      } else if (idx > activeIdx && lm.isLanded) {
+        // Un-index if user scrolls back up
+        lm.isLanded = false
+        lm.elements.forEach((el) => el.classList.remove(lm.highlightClass))
       }
-    }
-
-    landmarks.forEach((lm) => {
-      if (lm.isLanded) lm.landedAnimTime += dt
     })
 
+    // 2. Smooth Steering & Movement (Arrive Behavior - Zero Overshoot!)
+    const dx = destX - spider.x
+    const dy = destY - spider.y
+    const dist = Math.hypot(dx, dy)
+
+    if (dist > 7) {
+      spider.isMoving = true
+      const targetAngle = Math.atan2(dy, dx)
+      const angleDiff = normalizeAngle(targetAngle - spider.angle)
+      spider.angle += angleDiff * Math.min(dt * 7.5, 1)
+
+      // Smooth deceleration near target to eliminate orbiting
+      const speedFactor = clamp(dist / 40, 0.22, 1.0)
+      const currentSpeed = spider.maxSpeed * speedFactor
+      spider.vx = Math.cos(spider.angle) * currentSpeed
+      spider.vy = Math.sin(spider.angle) * currentSpeed
+
+      spider.x += spider.vx * dt
+      spider.y += spider.vy * dt
+
+      currentStatus.value = targetLandmark
+        ? `Indexing: ${targetLandmark.name}`
+        : 'Returning to perch'
+    } else {
+      spider.isMoving = false
+      spider.vx = 0
+      spider.vy = 0
+      spider.x = lerp(spider.x, destX, 0.2)
+      spider.y = lerp(spider.y, destY, 0.2)
+
+      currentStatus.value = targetLandmark
+        ? `Landed: ${targetLandmark.name}`
+        : 'Standing by at perch'
+    }
+
     // 3. Leg Stepping Simulation (Alternating Tetrapod Gait)
-    const isMoving = spider.state === 'crawling'
-    const stepDuration = 0.12
+    const stepDuration = 0.13
+    const stepTriggerDist = spider.isMoving ? 20 : 16
 
     let groupNeedsStep = false
     LEG_DEFS.forEach((def, i) => {
@@ -570,13 +522,13 @@ onMounted(() => {
 
         const leg = legs[i]
         const footDist = Math.hypot(idealX - leg.currentFootX, idealY - leg.currentFootY)
-        if (footDist > 22) {
+        if (footDist > stepTriggerDist) {
           groupNeedsStep = true
         }
       }
     })
 
-    if (isMoving && groupNeedsStep) {
+    if (groupNeedsStep) {
       LEG_DEFS.forEach((def, i) => {
         if (def.group === spider.activeGroup) {
           const leg = legs[i]
@@ -587,8 +539,8 @@ onMounted(() => {
               spider.y + Math.sin(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
             const idealAngle = spider.angle + def.restAngle * def.side
 
-            const leadX = spider.vx * 6.5
-            const leadY = spider.vy * 6.5
+            const leadX = spider.vx * 0.16
+            const leadY = spider.vy * 0.16
             const targetX = hipX + Math.cos(idealAngle) * def.reach + leadX
             const targetY = hipY + Math.sin(idealAngle) * def.reach + leadY
 
@@ -615,15 +567,16 @@ onMounted(() => {
         } else {
           allCurrentGroupDone = false
           const t = leg.stepProgress
-          // High arcing step lift
-          const lift = Math.sin(Math.PI * t) * 16
-          leg.currentFootX = lerp(leg.startFootX, leg.targetFootX, t)
-          leg.currentFootY = lerp(leg.startFootY, leg.targetFootY, t) - lift
+          // Smoothstep curve + parabolic vertical lift
+          const smoothT = t * t * (3 - 2 * t)
+          const lift = Math.sin(Math.PI * t) * 15
+          leg.currentFootX = lerp(leg.startFootX, leg.targetFootX, smoothT)
+          leg.currentFootY = lerp(leg.startFootY, leg.targetFootY, smoothT) - lift
         }
       }
     })
 
-    if (allCurrentGroupDone && isMoving && groupNeedsStep) {
+    if (allCurrentGroupDone && groupNeedsStep) {
       spider.activeGroup = spider.activeGroup === 0 ? 1 : 0
     }
 
@@ -632,88 +585,132 @@ onMounted(() => {
     // -------------------------------------------------------------------------
     ctx.clearRect(0, 0, width, height)
 
-    // 1. Digital Geometric Web Graph (criss-crossing lines between visited words)
-    if (webEdges.length > 0) {
+    const landedList = landmarks.filter((lm) => lm.isLanded)
+
+    // 1. Geometric Data Web Mesh (connecting visited landmarks)
+    if (landedList.length > 0) {
       ctx.save()
-      webEdges.forEach((edge) => {
+
+      // Primary backbone silk line from perch to landmark 0
+      ctx.beginPath()
+      ctx.moveTo(startX, startY)
+      ctx.lineTo(landedList[0].x, landedList[0].y)
+      ctx.strokeStyle = landedList[0].themeColor
+      ctx.lineWidth = 1.0
+      ctx.setLineDash([4, 4])
+      ctx.globalAlpha = 0.45
+      ctx.stroke()
+
+      // Node-to-node web threads
+      for (let i = 1; i < landedList.length; i++) {
+        const prev = landedList[i - 1]
+        const curr = landedList[i]
         ctx.beginPath()
-        ctx.moveTo(edge.fromX, edge.fromY)
-        ctx.lineTo(edge.toX, edge.toY)
-        ctx.strokeStyle = edge.color
-        ctx.lineWidth = 1.0
+        ctx.moveTo(prev.x, prev.y)
+        ctx.lineTo(curr.x, curr.y)
+        ctx.strokeStyle = curr.themeColor
+        ctx.lineWidth = 1.1
         ctx.setLineDash([4, 4])
-        ctx.globalAlpha = 0.45
+        ctx.globalAlpha = 0.5
         ctx.stroke()
 
-        // Web intersection nodes
+        // Mesh cross-thread if 3 or more nodes
+        if (i >= 2) {
+          const skipNode = landedList[i - 2]
+          ctx.beginPath()
+          ctx.moveTo(skipNode.x, skipNode.y)
+          ctx.lineTo(curr.x, curr.y)
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)'
+          ctx.lineWidth = 0.8
+          ctx.setLineDash([2, 4])
+          ctx.stroke()
+        }
+      }
+
+      // Nodes circles
+      landedList.forEach((lm) => {
         ctx.beginPath()
-        ctx.arc((edge.fromX + edge.toX) / 2, (edge.fromY + edge.toY) / 2, 2, 0, Math.PI * 2)
-        ctx.fillStyle = edge.color
-        ctx.globalAlpha = 0.6
+        ctx.arc(lm.x, lm.y, 2.5, 0, Math.PI * 2)
+        ctx.fillStyle = lm.themeColor
+        ctx.globalAlpha = 0.85
         ctx.fill()
       })
 
-      // Active silk thread from spider's spinneret to closest visited landmark
-      if (visitedLandmarks.length > 0) {
-        const lastLanded = visitedLandmarks[visitedLandmarks.length - 1]
-        ctx.beginPath()
-        ctx.moveTo(spider.x - Math.cos(spider.angle) * 12, spider.y - Math.sin(spider.angle) * 12)
-        ctx.lineTo(lastLanded.x, lastLanded.y)
-        ctx.strokeStyle = lastLanded.themeColor
-        ctx.lineWidth = 1.4
-        ctx.setLineDash([3, 2])
-        ctx.globalAlpha = 0.7
-        ctx.stroke()
-      }
+      // Active silk thread to spider's abdomen
+      const lastLanded = landedList[landedList.length - 1]
+      ctx.beginPath()
+      ctx.moveTo(spider.x - Math.cos(spider.angle) * 11, spider.y - Math.sin(spider.angle) * 11)
+      ctx.lineTo(lastLanded.x, lastLanded.y)
+      ctx.strokeStyle = lastLanded.themeColor
+      ctx.lineWidth = 1.2
+      ctx.setLineDash([3, 2])
+      ctx.globalAlpha = 0.7
+      ctx.stroke()
+
       ctx.restore()
     }
 
-    // 2. High-Tech OCR Corner Reticles & Tags on Visited Landmarks
+    // 2. High-Tech OCR Bounding Box & Corner Brackets (Exact TikTok Visuals)
     landmarks.forEach((lm) => {
       if (lm.isLanded) {
         ctx.save()
         const b = lm.box
-        const cornerLen = 7
+        const cornerLen = 6
 
-        // Corner brackets: ┌ ┐ └ ┘
+        // Translucent background fill
+        ctx.beginPath()
+        ctx.roundRect(b.left, b.top, b.width, b.height, 4)
+        ctx.fillStyle = lm.themeColor
+        ctx.globalAlpha = 0.16
+        ctx.fill()
+
+        // Glowing perimeter border
+        ctx.beginPath()
+        ctx.roundRect(b.left, b.top, b.width, b.height, 4)
         ctx.strokeStyle = lm.themeColor
-        ctx.lineWidth = 1.5
+        ctx.lineWidth = 1.2
+        ctx.globalAlpha = 0.8
         ctx.shadowColor = lm.themeColor
-        ctx.shadowBlur = 6
+        ctx.shadowBlur = 8
+        ctx.stroke()
+
+        // Technical corner reticles (┌ ┐ └ ┘)
+        ctx.lineWidth = 1.6
+        ctx.globalAlpha = 1.0
 
         // Top-left
         ctx.beginPath()
-        ctx.moveTo(b.left, b.top + cornerLen)
-        ctx.lineTo(b.left, b.top)
-        ctx.lineTo(b.left + cornerLen, b.top)
+        ctx.moveTo(b.left - 2, b.top + cornerLen)
+        ctx.lineTo(b.left - 2, b.top - 2)
+        ctx.lineTo(b.left + cornerLen, b.top - 2)
         ctx.stroke()
 
         // Top-right
         ctx.beginPath()
-        ctx.moveTo(b.right - cornerLen, b.top)
-        ctx.lineTo(b.right, b.top)
-        ctx.lineTo(b.right, b.top + cornerLen)
+        ctx.moveTo(b.right + 2 - cornerLen, b.top - 2)
+        ctx.lineTo(b.right + 2, b.top - 2)
+        ctx.lineTo(b.right + 2, b.top + cornerLen)
         ctx.stroke()
 
         // Bottom-left
         ctx.beginPath()
-        ctx.moveTo(b.left, b.bottom - cornerLen)
-        ctx.lineTo(b.left, b.bottom)
-        ctx.lineTo(b.left + cornerLen, b.bottom)
+        ctx.moveTo(b.left - 2, b.bottom - cornerLen)
+        ctx.lineTo(b.left - 2, b.bottom + 2)
+        ctx.lineTo(b.left + cornerLen, b.bottom + 2)
         ctx.stroke()
 
         // Bottom-right
         ctx.beginPath()
-        ctx.moveTo(b.right - cornerLen, b.bottom)
-        ctx.lineTo(b.right, b.bottom)
-        ctx.lineTo(b.right, b.bottom - cornerLen)
+        ctx.moveTo(b.right + 2 - cornerLen, b.bottom + 2)
+        ctx.lineTo(b.right + 2, b.bottom + 2)
+        ctx.lineTo(b.right + 2, b.bottom - cornerLen)
         ctx.stroke()
 
-        // Tech tag above box
+        // Micro monospace tag badge
         ctx.font = '600 9px ui-monospace, SFMono-Regular, Menlo, monospace'
         ctx.fillStyle = lm.themeColor
         ctx.shadowBlur = 4
-        ctx.fillText(`[${lm.tag}]`, b.left, b.top - 5)
+        ctx.fillText(`[${lm.tag}]`, b.left - 2, b.top - 6)
 
         ctx.restore()
       }
@@ -723,7 +720,7 @@ onMounted(() => {
     for (let i = shockwaves.length - 1; i >= 0; i--) {
       const sw = shockwaves[i]
       sw.radius += dt * 65
-      sw.alpha -= dt * 1.5
+      sw.alpha -= dt * 1.6
       if (sw.alpha <= 0) {
         shockwaves.splice(i, 1)
         continue
@@ -733,7 +730,7 @@ onMounted(() => {
       ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2)
       ctx.strokeStyle = sw.color
       ctx.globalAlpha = sw.alpha
-      ctx.lineWidth = 1.8
+      ctx.lineWidth = 1.6
       ctx.shadowColor = sw.color
       ctx.shadowBlur = 8
       ctx.stroke()
@@ -761,13 +758,13 @@ onMounted(() => {
       ctx.restore()
     }
 
-    // 5. Spider Rendering (Shadow + Long Spindly Legs + Carapace + Core)
+    // 5. Spider Rendering (Shadow + 8 Spindly Legs + Carapace + Core)
     ctx.save()
     ctx.shadowColor = 'rgba(0, 0, 0, 0.55)'
     ctx.shadowBlur = 10
     ctx.shadowOffsetY = 4
 
-    // Render 8 Spindly Legs with High Arcing Knees
+    // Render 8 Spindly Legs
     LEG_DEFS.forEach((def, i) => {
       const leg = legs[i]
       const hipX = spider.x + Math.cos(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
@@ -783,26 +780,26 @@ onMounted(() => {
         def.bendDirection * def.side,
       )
 
-      // Femur (upper leg segment)
+      // Femur (upper limb segment)
       ctx.beginPath()
       ctx.moveTo(hipX, hipY)
       ctx.lineTo(ik.kneeX, ik.kneeY)
-      ctx.strokeStyle = 'rgba(217, 160, 60, 0.92)'
-      ctx.lineWidth = 2.4
+      ctx.strokeStyle = 'rgba(217, 160, 60, 0.95)'
+      ctx.lineWidth = 2.2
       ctx.lineCap = 'round'
       ctx.stroke()
 
-      // Tibia (lower leg segment, long & tapered)
+      // Tibia (lower tapered limb segment)
       ctx.beginPath()
       ctx.moveTo(ik.kneeX, ik.kneeY)
       ctx.lineTo(ik.footX, ik.footY)
-      ctx.strokeStyle = 'rgba(240, 200, 100, 0.96)'
-      ctx.lineWidth = 1.4
+      ctx.strokeStyle = 'rgba(250, 204, 21, 0.96)'
+      ctx.lineWidth = 1.3
       ctx.stroke()
 
       // Knee joint pin
       ctx.beginPath()
-      ctx.arc(ik.kneeX, ik.kneeY, 2.2, 0, Math.PI * 2)
+      ctx.arc(ik.kneeX, ik.kneeY, 2.0, 0, Math.PI * 2)
       ctx.fillStyle = '#fef08a'
       ctx.fill()
 
@@ -817,52 +814,55 @@ onMounted(() => {
     ctx.translate(spider.x, spider.y)
     ctx.rotate(spider.angle)
 
+    // Gentle idle breathing
+    const breath = Math.sin(spider.idlePhase) * 0.5
+
     // Abdomen (rear)
     ctx.beginPath()
-    ctx.ellipse(-10, 0, 11, 8, 0, 0, Math.PI * 2)
-    ctx.fillStyle = '#11141b'
+    ctx.ellipse(-9, 0, 10 + breath, 7.5, 0, 0, Math.PI * 2)
+    ctx.fillStyle = '#11141c'
     ctx.fill()
     ctx.strokeStyle = 'rgba(217, 160, 60, 0.85)'
-    ctx.lineWidth = 1.6
+    ctx.lineWidth = 1.5
     ctx.stroke()
 
     // Cephalothorax (front)
     ctx.beginPath()
-    ctx.ellipse(5, 0, 8, 6.5, 0, 0, Math.PI * 2)
-    ctx.fillStyle = '#090b0e'
+    ctx.ellipse(5, 0, 7.5, 6, 0, 0, Math.PI * 2)
+    ctx.fillStyle = '#0a0c10'
     ctx.fill()
     ctx.strokeStyle = 'rgba(217, 160, 60, 0.95)'
-    ctx.lineWidth = 1.6
+    ctx.lineWidth = 1.5
     ctx.stroke()
 
-    // Glowing core reactor
+    // Pulsing cyber core reactor
     ctx.beginPath()
-    ctx.arc(-8, 0, 2.6, 0, Math.PI * 2)
+    ctx.arc(-7, 0, 2.4, 0, Math.PI * 2)
     ctx.fillStyle = '#38bdf8'
     ctx.shadowColor = '#38bdf8'
     ctx.shadowBlur = 8
     ctx.fill()
 
-    // Pedipalps (front twitching feelers)
+    // Pedipalps (front twitching sensory feelers)
     const palpTwitch = Math.sin(spider.pedipalpPhase) * 1.5
     ctx.beginPath()
-    ctx.moveTo(12, -3)
-    ctx.lineTo(17 + palpTwitch, -5)
-    ctx.moveTo(12, 3)
-    ctx.lineTo(17 - palpTwitch, 5)
+    ctx.moveTo(11, -3)
+    ctx.lineTo(16 + palpTwitch, -5)
+    ctx.moveTo(11, 3)
+    ctx.lineTo(16 - palpTwitch, 5)
     ctx.strokeStyle = 'rgba(217, 160, 60, 0.85)'
     ctx.lineWidth = 1.4
     ctx.stroke()
 
-    // Cyber eye cluster (4 glowing eyes)
+    // Cyber eye cluster (4 glowing scanning eyes)
     ctx.fillStyle = '#38bdf8'
     ctx.shadowColor = '#38bdf8'
     ctx.shadowBlur = 4
     ctx.beginPath()
-    ctx.arc(11, -2.5, 1.2, 0, Math.PI * 2)
-    ctx.arc(11, 2.5, 1.2, 0, Math.PI * 2)
-    ctx.arc(12.5, -1, 1.0, 0, Math.PI * 2)
-    ctx.arc(12.5, 1, 1.0, 0, Math.PI * 2)
+    ctx.arc(10, -2, 1.2, 0, Math.PI * 2)
+    ctx.arc(10, 2, 1.2, 0, Math.PI * 2)
+    ctx.arc(11.5, -0.8, 1.0, 0, Math.PI * 2)
+    ctx.arc(11.5, 0.8, 1.0, 0, Math.PI * 2)
     ctx.fill()
 
     ctx.restore()
@@ -874,7 +874,7 @@ onMounted(() => {
     if (animFrameId) cancelAnimationFrame(animFrameId)
     resizeObserver?.disconnect()
     intersectionObserver?.disconnect()
-    // Clean up all highlight classes from bio words
+    // Clean up any added classes
     landmarks.forEach((lm) => {
       lm.elements.forEach((el) => el.classList.remove(lm.highlightClass))
     })
@@ -903,7 +903,7 @@ function togglePause() {
         <span class="bg-brand relative inline-flex size-2 rounded-full" />
       </span>
 
-      <span class="text-muted-foreground hidden sm:inline">Web Crawler:</span>
+      <span class="text-muted-foreground hidden sm:inline">AI Crawler:</span>
       <span class="text-foreground font-medium">
         {{ isPaused ? 'Paused' : currentStatus }}
       </span>
