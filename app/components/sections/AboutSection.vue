@@ -80,7 +80,10 @@ useGsapContext(root, () => {
 </script>
 
 <template>
-  <section id="about" ref="root" class="relative py-28 sm:py-36 lg:py-44">
+  <section id="about" ref="root" class="relative overflow-hidden py-28 sm:py-36 lg:py-44">
+    <!-- Procedural Web Crawler Spider Animation -->
+    <WebCrawler container-selector="#about" />
+
     <div class="mx-auto max-w-350 px-5 sm:px-8 lg:px-12">
       <SectionHeading
         index="01"
