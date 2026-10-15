@@ -66,52 +66,95 @@ function localToWorld(
   }
 }
 
+interface LegJoints {
+  coxaStartX: number
+  coxaStartY: number
+  coxaEndX: number
+  coxaEndY: number
+  kneeX: number
+  kneeY: number
+  ankleX: number
+  ankleY: number
+  footX: number
+  footY: number
+}
+
 /**
- * High-precision 2-bone IK with anatomical front/back knee bias.
- * Ensures front knees arch FORWARD towards the head, rear knees arch BACKWARD trailing the body,
- * and all knees arch cleanly OUTWARD away from the spider.
+ * Articulated 4-part arachnid leg IK solver.
+ * Segments:
+ * 1. Coxa: Carapace anchor base extending outward.
+ * 2. Femur: High-arcing thigh reaching to the knee.
+ * 3. Tibia: Shin segment stepping downward.
+ * 4. Tarsus: Cyber claw tip planted directly onto the page.
  */
-function solveKnee(
+function solve4PartLeg(
   spiderAngle: number,
-  hipX: number,
-  hipY: number,
+  bodyX: number,
+  bodyY: number,
+  localHip: [number, number],
+  coxaLen: number,
+  coxaAngleOffset: number,
   footX: number,
   footY: number,
-  len1: number,
-  len2: number,
+  lenFemur: number,
+  lenTibia: number,
+  lenTarsus: number,
   side: 1 | -1,
   fwdBias: number,
-) {
-  let dx = footX - hipX
-  let dy = footY - hipY
+): LegJoints {
+  const cos = Math.cos(spiderAngle)
+  const sin = Math.sin(spiderAngle)
+
+  // 1. Part 1: Coxa base on carapace
+  const hipStartX = bodyX + cos * localHip[0] - sin * localHip[1]
+  const hipStartY = bodyY + sin * localHip[0] + cos * localHip[1]
+
+  // Coxa tip extending outward from carapace
+  const coxaWorldAngle = spiderAngle + coxaAngleOffset
+  const coxaEndX = hipStartX + Math.cos(coxaWorldAngle) * coxaLen
+  const coxaEndY = hipStartY + Math.sin(coxaWorldAngle) * coxaLen
+
+  // 2. Part 4: Tarsus touches footX, footY
+  const afDx = footX - coxaEndX
+  const afDy = footY - coxaEndY
+  const afDist = Math.hypot(afDx, afDy) || 1
+
+  // Ankle is positioned along vector from foot towards coxaEnd:
+  const ankleX = footX - (afDx / afDist) * lenTarsus
+  const ankleY = footY - (afDy / afDist) * lenTarsus
+
+  // 3. Parts 2 & 3: Solve 2-bone IK (Femur & Tibia) between coxaEnd and ankle
+  let dx = ankleX - coxaEndX
+  let dy = ankleY - coxaEndY
   let d = Math.hypot(dx, dy)
   if (d < 0.001) d = 0.001
-  const maxReach = len1 + len2 - 0.001
+  const maxReach = lenFemur + lenTibia - 0.001
+  let finalAnkleX = ankleX
+  let finalAnkleY = ankleY
   if (d > maxReach) {
-    footX = hipX + (dx / d) * maxReach
-    footY = hipY + (dy / d) * maxReach
+    finalAnkleX = coxaEndX + (dx / d) * maxReach
+    finalAnkleY = coxaEndY + (dy / d) * maxReach
     d = maxReach
-    dx = footX - hipX
-    dy = footY - hipY
+    dx = finalAnkleX - coxaEndX
+    dy = finalAnkleY - coxaEndY
   }
 
-  const cosA = (len1 * len1 + d * d - len2 * len2) / (2 * len1 * d)
+  const cosA = (lenFemur * lenFemur + d * d - lenTibia * lenTibia) / (2 * lenFemur * d)
   const clampedCosA = Math.max(-1, Math.min(1, cosA))
   const sinA = Math.sqrt(Math.max(0, 1 - clampedCosA * clampedCosA))
-  const kneeAlong = len1 * clampedCosA
-  const kneeHeight = len1 * sinA
+  const kneeAlong = lenFemur * clampedCosA
+  const kneeHeight = lenFemur * sinA
 
-  const basePointX = hipX + (dx / d) * kneeAlong
-  const basePointY = hipY + (dy / d) * kneeAlong
+  const basePointX = coxaEndX + (dx / d) * kneeAlong
+  const basePointY = coxaEndY + (dy / d) * kneeAlong
 
   // Limb perpendicular unit normal
   const p1X = -dy / d
   const p1Y = dx / d
 
-  // Forward unit vector in world space
+  // Forward and Right unit vectors in world space
   const fx = Math.cos(spiderAngle)
   const fy = Math.sin(spiderAngle)
-  // Right normal unit vector in world space
   const rx = -Math.sin(spiderAngle)
   const ry = Math.cos(spiderAngle)
 
@@ -126,7 +169,18 @@ function solveKnee(
   const kneeX = basePointX + nx * kneeHeight
   const kneeY = basePointY + ny * kneeHeight
 
-  return { kneeX, kneeY, footX, footY }
+  return {
+    coxaStartX: hipStartX,
+    coxaStartY: hipStartY,
+    coxaEndX,
+    coxaEndY,
+    kneeX,
+    kneeY,
+    ankleX: finalAnkleX,
+    ankleY: finalAnkleY,
+    footX,
+    footY,
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -136,11 +190,13 @@ function solveKnee(
 interface LegDef {
   id: string
   side: 1 | -1
-  hip: [number, number]
+  localHip: [number, number]
+  coxaLen: number
+  coxaAngle: number
   rest: [number, number]
-  reach: number
-  len1: number
-  len2: number
+  lenFemur: number
+  lenTibia: number
+  lenTarsus: number
   fwdBias: number
 }
 
@@ -213,23 +269,22 @@ interface Sparkle {
   life: number
 }
 
-// 8 Anatomical arachnid legs:
+// 8 Anatomical 4-part arachnid legs (Coxa + Femur + Tibia + Tarsus):
 // - Front legs (L1, R1) bend & point FORWARD
 // - Mid legs (L2, R2, L3, R3) splay OUTWARD
-// - Rear legs (L4, R4) bend & point BACKWARD trailing the abdomen
-// - Long spindly reach (68–84px) that stretches cleanly across words
+// - Rear legs (L4, R4) articulate with high knee, sweeping tibia, and downward claw trailing the abdomen
 const LEG_DEFS: LegDef[] = [
   // Left side (Front to Back)
-  { id: 'L1', side: -1, hip: [7, -5],   rest: [46, -58],  reach: 76, len1: 36, len2: 44, fwdBias: 0.85 },
-  { id: 'L2', side: -1, hip: [3, -7],   rest: [12, -72],  reach: 68, len1: 32, len2: 40, fwdBias: 0.35 },
-  { id: 'L3', side: -1, hip: [-3, -7],  rest: [-22, -68], reach: 70, len1: 32, len2: 40, fwdBias: -0.35 },
-  { id: 'L4', side: -1, hip: [-7, -5],  rest: [-58, -52], reach: 82, len1: 38, len2: 46, fwdBias: -0.85 },
+  { id: 'L1', side: -1, localHip: [7, -4],   coxaAngle: -0.75, coxaLen: 7, rest: [48, -54],  lenFemur: 26, lenTibia: 28, lenTarsus: 16, fwdBias: 0.85 },
+  { id: 'L2', side: -1, localHip: [3, -6],   coxaAngle: -1.35, coxaLen: 6, rest: [14, -68],  lenFemur: 24, lenTibia: 26, lenTarsus: 14, fwdBias: 0.35 },
+  { id: 'L3', side: -1, localHip: [-3, -6],  coxaAngle: -1.85, coxaLen: 6, rest: [-20, -64], lenFemur: 24, lenTibia: 26, lenTarsus: 14, fwdBias: -0.35 },
+  { id: 'L4', side: -1, localHip: [-7, -4],  coxaAngle: -2.45, coxaLen: 8, rest: [-54, -48], lenFemur: 28, lenTibia: 30, lenTarsus: 18, fwdBias: -0.85 },
 
   // Right side (Front to Back)
-  { id: 'R1', side: 1,  hip: [7, 5],    rest: [46, 58],   reach: 76, len1: 36, len2: 44, fwdBias: 0.85 },
-  { id: 'R2', side: 1,  hip: [3, 7],    rest: [12, 72],   reach: 68, len1: 32, len2: 40, fwdBias: 0.35 },
-  { id: 'R3', side: 1,  hip: [-3, 7],   rest: [-22, 68],  reach: 70, len1: 32, len2: 40, fwdBias: -0.35 },
-  { id: 'R4', side: 1,  hip: [-7, 5],   rest: [-58, 52],  reach: 82, len1: 38, len2: 46, fwdBias: -0.85 },
+  { id: 'R1', side: 1,  localHip: [7, 4],    coxaAngle: 0.75,  coxaLen: 7, rest: [48, 54],   lenFemur: 26, lenTibia: 28, lenTarsus: 16, fwdBias: 0.85 },
+  { id: 'R2', side: 1,  localHip: [3, 6],    coxaAngle: 1.35,  coxaLen: 6, rest: [14, 68],   lenFemur: 24, lenTibia: 26, lenTarsus: 14, fwdBias: 0.35 },
+  { id: 'R3', side: 1,  localHip: [-3, 6],   coxaAngle: 1.85,  coxaLen: 6, rest: [-20, 64],  lenFemur: 24, lenTibia: 26, lenTarsus: 14, fwdBias: -0.35 },
+  { id: 'R4', side: 1,  localHip: [-7, 4],   coxaAngle: 2.45,  coxaLen: 8, rest: [-54, 48],  lenFemur: 28, lenTibia: 30, lenTarsus: 18, fwdBias: -0.85 },
 ]
 
 // Stepping order for the one-by-one wave gait:
@@ -439,25 +494,24 @@ onMounted(() => {
     vx: 0,
     vy: 0,
     angle: Math.PI / 2, // Facing downward
-    speed: 135, // px / sec: snappy, agile arachnid sprint
+    speed: 180, // px / sec: brisk, agile arachnid sprint (faster!)
     pedipalpPhase: 0,
     idlePhase: 0,
   }
 
   type SpiderMovementMode =
     | 'scuttle'      // Fast agile dart forward
-    | 'micro_pause'  // Natural 0.2s pause between strides ("movement one stop like real spider")
+    | 'micro_pause'  // Natural 0.12s pause between strides ("movement one stop like real spider")
     | 'landing_legs' // Stopped directly on landmark word: legs place down one by one
-    | 'inspecting'   // Scanning word with active OCR highlight for ~1.8s
+    | 'inspecting'   // Scanning word with active OCR highlight for ~1.2s
 
   let movementMode: SpiderMovementMode = 'scuttle'
-  let movementTimer = 0.55
+  let movementTimer = 0.45
   let landingLegStepIndex = 0
   let inspectTimer = 0
 
   // Initialize legs at anatomical rest positions
   const legs: LegState[] = LEG_DEFS.map((def) => {
-    const hip = localToWorld(spider.x, spider.y, spider.angle, def.hip[0], def.hip[1])
     const foot = localToWorld(spider.x, spider.y, spider.angle, def.rest[0], def.rest[1])
     return {
       currentFootX: foot.x,
@@ -495,7 +549,7 @@ onMounted(() => {
 
     const dt = Math.min((currentTime - lastTime) / 1000, 0.08)
     lastTime = currentTime
-    spider.idlePhase += dt * 3
+    spider.idlePhase += dt * 4
 
     // Determine currently active landmark theme color
     const nextLm = waypoints[currentWaypointIndex]?.landmarkId
@@ -514,8 +568,8 @@ onMounted(() => {
       const angleDiff = normalizeAngle(targetAngle - spider.angle)
 
       if (movementMode === 'scuttle') {
-        spider.pedipalpPhase += dt * 8
-        spider.angle += angleDiff * Math.min(dt * 7.5, 1)
+        spider.pedipalpPhase += dt * 10
+        spider.angle += angleDiff * Math.min(dt * 9.0, 1)
         spider.vx = Math.cos(spider.angle) * spider.speed
         spider.vy = Math.sin(spider.angle) * spider.speed
         spider.x += spider.vx * dt
@@ -537,12 +591,12 @@ onMounted(() => {
           }
         }
 
-        // Timer for scuttle burst: after ~0.5s, take a natural micro-pause ("one stop")
+        // Timer for scuttle burst: quick burst, then a brisk micro-pause ("one stop")
         if (movementMode === 'scuttle') {
           movementTimer -= dt
           if (movementTimer <= 0) {
             movementMode = 'micro_pause'
-            movementTimer = 0.16 + Math.random() * 0.14
+            movementTimer = 0.10 + Math.random() * 0.08
             spider.vx = 0
             spider.vy = 0
           }
@@ -563,17 +617,17 @@ onMounted(() => {
         // Real spider momentary freeze between strides
         spider.vx = 0
         spider.vy = 0
-        spider.pedipalpPhase += dt * 14 // Sensory feelers twitch alertly
+        spider.pedipalpPhase += dt * 16 // Sensory feelers twitch alertly
         movementTimer -= dt
         if (movementTimer <= 0) {
           movementMode = 'scuttle'
-          movementTimer = 0.45 + Math.random() * 0.25
+          movementTimer = 0.35 + Math.random() * 0.22
         }
       } else if (movementMode === 'landing_legs') {
         // Spider is parked directly on the word - legs place down ONE BY ONE
         spider.vx = 0
         spider.vy = 0
-        spider.pedipalpPhase += dt * 12
+        spider.pedipalpPhase += dt * 14
 
         // Check if the current leg in the sequence needs to start its step
         if (landingLegStepIndex < STEP_ORDER.length) {
@@ -602,13 +656,14 @@ onMounted(() => {
           // Inspection complete, scuttle to next milestone
           currentWaypointIndex = (currentWaypointIndex + 1) % waypoints.length
           movementMode = 'scuttle'
-          movementTimer = 0.5
+          movementTimer = 0.4
         }
       }
     }
 
     // 2. Stepping Logic: One by One Placement & Continuous Ripple Wave
-    const stepDuration = 0.08
+    // Brisk, agile stepping speed (65ms scuttle, 55ms landing)
+    const stepDuration = movementMode === 'landing_legs' ? 0.055 : 0.065
 
     if (movementMode === 'scuttle') {
       let anyLegStepping = false
@@ -620,7 +675,7 @@ onMounted(() => {
       }
 
       if (!anyLegStepping) {
-        let maxDist = 18 // Trigger distance threshold
+        let maxDist = 16 // Trigger distance threshold
         let chosenLegIdx = -1
 
         for (let s = 0; s < STEP_ORDER.length; s++) {
@@ -629,8 +684,8 @@ onMounted(() => {
           const leg = legs[i]
 
           const ideal = localToWorld(spider.x, spider.y, spider.angle, def.rest[0], def.rest[1])
-          const leadX = spider.vx * 0.22
-          const leadY = spider.vy * 0.22
+          const leadX = spider.vx * 0.18
+          const leadY = spider.vy * 0.18
           const idealX = ideal.x + leadX
           const idealY = ideal.y + leadY
 
@@ -645,8 +700,8 @@ onMounted(() => {
           const leg = legs[chosenLegIdx]
           const def = LEG_DEFS[chosenLegIdx]
           const ideal = localToWorld(spider.x, spider.y, spider.angle, def.rest[0], def.rest[1])
-          const leadX = spider.vx * 0.22
-          const leadY = spider.vy * 0.22
+          const leadX = spider.vx * 0.18
+          const leadY = spider.vy * 0.18
 
           leg.startFootX = leg.currentFootX
           leg.startFootY = leg.currentFootY
@@ -701,12 +756,12 @@ onMounted(() => {
 
                   for (let s = 0; s < 12; s++) {
                     const spAngle = Math.random() * Math.PI * 2
-                    const spSpeed = 20 + Math.random() * 45
+                    const spSpeed = 25 + Math.random() * 50
                     sparkles.push({
                       x: lm.x + (Math.random() - 0.5) * lm.box.width,
                       y: lm.box.bottom,
                       vx: Math.cos(spAngle) * spSpeed,
-                      vy: -15 - Math.random() * 30,
+                      vy: -18 - Math.random() * 32,
                       size: 1.4 + Math.random() * 1.8,
                       color: lm.themeColor,
                       alpha: 1,
@@ -718,13 +773,13 @@ onMounted(() => {
               }
 
               movementMode = 'inspecting'
-              inspectTimer = 1.8 // Dwell on the word
+              inspectTimer = 1.2 // Snappy 1.2s inspection dwell on word
             }
           }
         } else {
           const t = leg.stepProgress
           const smoothT = t * t * (3 - 2 * t)
-          const lift = Math.sin(Math.PI * t) * 14
+          const lift = Math.sin(Math.PI * t) * 13
           leg.currentFootX = lerp(leg.startFootX, leg.targetFootX, smoothT)
           leg.currentFootY = lerp(leg.startFootY, leg.targetFootY, smoothT) - lift
         }
@@ -923,46 +978,78 @@ onMounted(() => {
     ctx.shadowBlur = 8
     ctx.shadowOffsetY = 3
 
-    // Render 8 Spindly, Stretchable Legs with Outward Knee Arcs & Anatomical Front/Back Bias
+    // Render 8 Articulated 4-Part Arachnid Legs (Coxa -> Femur -> Tibia -> Tarsus)
     LEG_DEFS.forEach((def, i) => {
       const leg = legs[i]
-      const hip = localToWorld(spider.x, spider.y, spider.angle, def.hip[0], def.hip[1])
 
-      const ik = solveKnee(
+      const ik = solve4PartLeg(
         spider.angle,
-        hip.x,
-        hip.y,
+        spider.x,
+        spider.y,
+        def.localHip,
+        def.coxaLen,
+        def.coxaAngle,
         leg.currentFootX,
         leg.currentFootY,
-        def.len1,
-        def.len2,
+        def.lenFemur,
+        def.lenTibia,
+        def.lenTarsus,
         def.side,
         def.fwdBias,
       )
 
-      // Femur (upper limb segment) - clean metallic slate
+      // Part 1: Coxa (heavy carapace anchor bracket)
       ctx.beginPath()
-      ctx.moveTo(hip.x, hip.y)
-      ctx.lineTo(ik.kneeX, ik.kneeY)
-      ctx.strokeStyle = 'rgba(203, 213, 225, 0.95)'
-      ctx.lineWidth = 2.0
+      ctx.moveTo(ik.coxaStartX, ik.coxaStartY)
+      ctx.lineTo(ik.coxaEndX, ik.coxaEndY)
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.95)'
+      ctx.lineWidth = 2.4
       ctx.lineCap = 'round'
       ctx.stroke()
 
-      // Tibia (lower tapered limb segment) - glowing theme accent
+      // Part 2: Femur (high-arcing thigh segment)
       ctx.beginPath()
-      ctx.moveTo(ik.kneeX, ik.kneeY)
-      ctx.lineTo(ik.footX, ik.footY)
-      ctx.strokeStyle = activeColor
-      ctx.lineWidth = 1.4
+      ctx.moveTo(ik.coxaEndX, ik.coxaEndY)
+      ctx.lineTo(ik.kneeX, ik.kneeY)
+      ctx.strokeStyle = 'rgba(203, 213, 225, 0.95)'
+      ctx.lineWidth = 2.0
       ctx.stroke()
 
-      // Knee joint - micro white node
+      // Part 3: Tibia (shin segment stepping downward)
+      ctx.beginPath()
+      ctx.moveTo(ik.kneeX, ik.kneeY)
+      ctx.lineTo(ik.ankleX, ik.ankleY)
+      ctx.strokeStyle = 'rgba(226, 232, 240, 0.9)'
+      ctx.lineWidth = 1.6
+      ctx.stroke()
+
+      // Part 4: Tarsus (cyber claw tip contacting page)
+      ctx.beginPath()
+      ctx.moveTo(ik.ankleX, ik.ankleY)
+      ctx.lineTo(ik.footX, ik.footY)
+      ctx.strokeStyle = activeColor
+      ctx.lineWidth = 1.3
+      ctx.stroke()
+
+      // Joints:
+      // Coxa/trochanter joint - micro slate node
+      ctx.beginPath()
+      ctx.arc(ik.coxaEndX, ik.coxaEndY, 1.4, 0, Math.PI * 2)
+      ctx.fillStyle = '#64748b'
+      ctx.fill()
+
+      // Knee joint - glowing white node
       ctx.beginPath()
       ctx.arc(ik.kneeX, ik.kneeY, 1.8, 0, Math.PI * 2)
       ctx.fillStyle = '#ffffff'
       ctx.shadowColor = activeColor
       ctx.shadowBlur = 4
+      ctx.fill()
+
+      // Ankle joint - metallic micro node
+      ctx.beginPath()
+      ctx.arc(ik.ankleX, ik.ankleY, 1.4, 0, Math.PI * 2)
+      ctx.fillStyle = 'rgba(203, 213, 225, 0.95)'
       ctx.fill()
 
       // Foot contact point - planted directly on the text!
