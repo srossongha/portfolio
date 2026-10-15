@@ -52,16 +52,16 @@ useGsapContext(root, () => {
   // Each word of the bio brightens as it crosses the middle of the viewport.
   gsap.fromTo(
     '.about-bio .split-word',
-    { opacity: 0.15 },
+    { opacity: 0.85 },
     {
       opacity: 1,
       ease: 'none',
-      stagger: 0.6, // relative weighting between words, not seconds — scrub scales it
+      stagger: 0.4, // relative weighting between words, not seconds — scrub scales it
       scrollTrigger: {
         trigger: '.about-bio',
-        // Start when the paragraph's top hits 75% down the screen, finish when
-        // its bottom reaches the middle. That window is what the scrub maps onto.
-        start: 'top 75%',
+        // Start when the paragraph's top hits 85% down the screen, finish when
+        // its bottom reaches the middle.
+        start: 'top 85%',
         end: 'bottom 55%',
         scrub: true,
       },
@@ -81,9 +81,6 @@ useGsapContext(root, () => {
 
 <template>
   <section id="about" ref="root" class="relative overflow-hidden py-28 sm:py-36 lg:py-44">
-    <!-- Procedural Web Crawler Spider Animation -->
-    <WebCrawler container-selector="#about" />
-
     <div class="mx-auto max-w-350 px-5 sm:px-8 lg:px-12">
       <SectionHeading
         index="01"
@@ -97,11 +94,7 @@ useGsapContext(root, () => {
         <div class="lg:col-span-7">
           <!-- Words mode: we only need per-word targets, not per-letter. Using
                chars here would create ~700 spans for no visual benefit. -->
-          <div
-            class="about-bio space-y-6"
-            data-crawler-target="Core Stack: Vue, Nuxt & React"
-            data-crawler-type="stack"
-          >
+          <div class="about-bio space-y-6">
             <SplitText
               v-for="(paragraph, i) in profile.bio"
               :key="i"
@@ -113,12 +106,13 @@ useGsapContext(root, () => {
             />
           </div>
 
-          <!-- CV Download card & actions -->
+          <!-- CV Download card & actions with dedicated Web Crawler -->
           <div
-            class="about-cv-card border-border/70 bg-card/40 hover:border-brand/40 mt-12 rounded-2xl border p-5 backdrop-blur-md transition-all sm:p-6"
-            data-crawler-target="Curriculum Vitae (PDF)"
-            data-crawler-type="cv"
+            class="about-cv-card relative border-border/70 bg-card/40 hover:border-brand/40 mt-12 rounded-2xl border p-5 backdrop-blur-md transition-all sm:p-6"
           >
+            <!-- Web Crawler animation focused exclusively on the CV download -->
+            <WebCrawler container-selector=".about-cv-card" />
+
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div class="flex items-center gap-3.5">
                 <div class="bg-brand/10 border-brand/20 text-brand flex size-11 shrink-0 items-center justify-center rounded-xl border">
@@ -176,12 +170,7 @@ useGsapContext(root, () => {
           </div>
 
           <!-- Social links -->
-          <RevealOnScroll
-            :stagger="0.08"
-            class="about-socials mt-8 flex flex-wrap gap-2.5"
-            data-crawler-target="Connect: GitHub & Telegram"
-            data-crawler-type="social"
-          >
+          <RevealOnScroll :stagger="0.08" class="mt-8 flex flex-wrap gap-2.5">
             <a
               v-for="social in socials"
               :key="social.href"
@@ -206,14 +195,7 @@ useGsapContext(root, () => {
 
             <div class="flex-1">
               <!-- Portrait -->
-              <TiltCard
-                :max="7"
-                :lift="18"
-                radius="rounded-2xl"
-                class="about-portrait mb-10"
-                data-crawler-target="Portrait: Sros Songha"
-                data-crawler-type="profile"
-              >
+              <TiltCard :max="7" :lift="18" radius="rounded-2xl" class="mb-10">
                 <div class="border-border/60 relative aspect-4/5 overflow-hidden rounded-2xl border">
                   <img
                     src="/images/profile.jpeg"
@@ -238,12 +220,7 @@ useGsapContext(root, () => {
               </TiltCard>
 
               <!-- Principles -->
-              <RevealOnScroll
-                :stagger="0.1"
-                class="about-principles space-y-6"
-                data-crawler-target="Principles: Ship It"
-                data-crawler-type="principles"
-              >
+              <RevealOnScroll :stagger="0.1" class="space-y-6">
                 <div v-for="principle in principles" :key="principle.title">
                   <h3 class="font-mono text-[11px] tracking-[0.25em] uppercase">
                     <span class="text-brand">→ </span>{{ principle.title }}
