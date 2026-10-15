@@ -2,17 +2,20 @@
 import { Play, Pause } from '@lucide/vue'
 
 /**
- * Procedural "Web Crawler" Spider — Dedicated CV Attention Guide.
+ * Scroll-Driven "Web Crawler" Spider.
  *
- * Scoped directly to the Curriculum Vitae card:
- * 1. The bio text above remains 100% clean, crisp, and clearly visible.
- * 2. The spider lives directly on the CV card, patrols its perimeter, and
- *    physically perches on the "Download CV" button.
- * 3. Taps its front legs on the button, radiates golden attention shockwaves,
- *    bounces a directional arrow, and emits cyber sparks to get visitors
- *    to download the CV.
- * 4. Interactive: reacts to pointer hover over the card and celebrates with
- *    a leap & sparkle burst when the button is clicked.
+ * Inspired by Slava Rybin's viral creative coding concept:
+ * 1. The spider starts perched at the top of the "About me" section.
+ * 2. As the user scrolls down, the crawler automatically crawls downwards from
+ *    top to bottom through the bio text.
+ * 3. Its legs specifically step onto and land on key important words (like
+ *    "Computer Science", "front-end developer", "Vue, Nuxt, and React", "Roomie").
+ * 4. When the text is landed on, it triggers a live visual reaction:
+ *    - The word lights up in glowing brand gold with a text shadow.
+ *    - An animated golden laser underline and cyber halo ripple across the word.
+ *    - Floating golden micro-sparks emit from the letters.
+ * 5. As the user continues scrolling, visited words remain illuminated,
+ *    leaving a trail of highlighted achievements with a subtle silk web thread.
  */
 
 interface Props {
@@ -20,11 +23,12 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  containerSelector: '.about-cv-card',
+  containerSelector: '#about',
 })
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const isPaused = ref(false)
+const currentStatus = ref('Scroll to guide crawler')
 const reduced = useReducedMotion()
 
 // -----------------------------------------------------------------------------
@@ -104,15 +108,27 @@ interface LegState {
   isStepping: boolean
 }
 
-interface CVWaypoint {
+interface TextLandmark {
+  id: string
+  name: string
+  words: string[]
+  elements: HTMLElement[]
   x: number
   y: number
-  label: string
-  isPrimary: boolean
-  stayDuration: number
+  box: {
+    left: number
+    right: number
+    top: number
+    bottom: number
+    width: number
+    height: number
+  }
+  scrollTriggerProgress: number
+  isLanded: boolean
+  landedAnimTime: number
 }
 
-interface PulseHalo {
+interface Shockwave {
   x: number
   y: number
   radius: number
@@ -130,23 +146,28 @@ interface Sparkle {
   life: number
 }
 
+interface WebPoint {
+  x: number
+  y: number
+}
+
 // 8 Leg definitions with realistic geometry
 const LEG_DEFS: LegDef[] = [
   // Left side
-  { side: -1, hipAngleOffset: -0.65, hipDist: 9, restAngle: -0.95, reach: 40, len1: 19, len2: 23, bendDirection: -1, group: 0 },
-  { side: -1, hipAngleOffset: -0.25, hipDist: 8, restAngle: -0.4, reach: 35, len1: 17, len2: 20, bendDirection: -1, group: 1 },
-  { side: -1, hipAngleOffset: 0.25, hipDist: 8, restAngle: 0.4, reach: 35, len1: 17, len2: 20, bendDirection: 1, group: 0 },
-  { side: -1, hipAngleOffset: 0.65, hipDist: 9, restAngle: 1.05, reach: 42, len1: 20, len2: 24, bendDirection: 1, group: 1 },
+  { side: -1, hipAngleOffset: -0.65, hipDist: 10, restAngle: -0.95, reach: 44, len1: 21, len2: 25, bendDirection: -1, group: 0 },
+  { side: -1, hipAngleOffset: -0.25, hipDist: 9, restAngle: -0.4, reach: 38, len1: 18, len2: 22, bendDirection: -1, group: 1 },
+  { side: -1, hipAngleOffset: 0.25, hipDist: 9, restAngle: 0.4, reach: 38, len1: 18, len2: 22, bendDirection: 1, group: 0 },
+  { side: -1, hipAngleOffset: 0.65, hipDist: 10, restAngle: 1.05, reach: 46, len1: 22, len2: 26, bendDirection: 1, group: 1 },
 
   // Right side
-  { side: 1, hipAngleOffset: 0.65, hipDist: 9, restAngle: 0.95, reach: 40, len1: 19, len2: 23, bendDirection: 1, group: 1 },
-  { side: 1, hipAngleOffset: 0.25, hipDist: 8, restAngle: 0.4, reach: 35, len1: 17, len2: 20, bendDirection: 1, group: 0 },
-  { side: 1, hipAngleOffset: -0.25, hipDist: 8, restAngle: -0.4, reach: 35, len1: 17, len2: 20, bendDirection: -1, group: 1 },
-  { side: 1, hipAngleOffset: -0.65, hipDist: 9, restAngle: -1.05, reach: 42, len1: 20, len2: 24, bendDirection: -1, group: 0 },
+  { side: 1, hipAngleOffset: 0.65, hipDist: 10, restAngle: 0.95, reach: 44, len1: 21, len2: 25, bendDirection: 1, group: 1 },
+  { side: 1, hipAngleOffset: 0.25, hipDist: 9, restAngle: 0.4, reach: 38, len1: 18, len2: 22, bendDirection: 1, group: 0 },
+  { side: 1, hipAngleOffset: -0.25, hipDist: 9, restAngle: -0.4, reach: 38, len1: 18, len2: 22, bendDirection: -1, group: 1 },
+  { side: 1, hipAngleOffset: -0.65, hipDist: 10, restAngle: -1.05, reach: 46, len1: 22, len2: 26, bendDirection: -1, group: 0 },
 ]
 
 // -----------------------------------------------------------------------------
-// Component Lifecycle
+// Component Execution
 // -----------------------------------------------------------------------------
 
 let animFrameId: number | null = null
@@ -165,121 +186,124 @@ onMounted(() => {
   const container = document.querySelector(props.containerSelector) as HTMLElement | null
   if (!container) return
 
-  const PADDING = 24 // extra margin around the card for legs & halos
-  let cardWidth = container.clientWidth
-  let cardHeight = container.clientHeight
-  let totalWidth = cardWidth + PADDING * 2
-  let totalHeight = cardHeight + PADDING * 2
+  let width = container.clientWidth
+  let height = container.clientHeight
   let dpr = Math.min(window.devicePixelRatio || 1, 2)
 
   function updateSize() {
     if (!container || !canvas || !ctx) return
-    cardWidth = container.clientWidth
-    cardHeight = container.clientHeight
-    totalWidth = cardWidth + PADDING * 2
-    totalHeight = cardHeight + PADDING * 2
+    width = container.clientWidth
+    height = container.clientHeight
     dpr = Math.min(window.devicePixelRatio || 1, 2)
-    canvas.width = Math.floor(totalWidth * dpr)
-    canvas.height = Math.floor(totalHeight * dpr)
+    canvas.width = Math.floor(width * dpr)
+    canvas.height = Math.floor(height * dpr)
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    refreshWaypoints()
+    refreshLandmarks()
   }
 
   resizeObserver = new ResizeObserver(() => updateSize())
   resizeObserver.observe(container)
 
-  // Waypoints across the CV card
-  let waypoints: CVWaypoint[] = []
-  let currentWaypointIndex = 0
+  // ---------------------------------------------------------------------------
+  // Target Landmarks: Specific Important Words along the Bio
+  // ---------------------------------------------------------------------------
+  const LANDMARK_CONFIGS = [
+    { id: 'cs', name: 'Computer Science', words: ['computer', 'science'], progress: 0.14 },
+    { id: 'frontend', name: 'Front-end Developer', words: ['front-end', 'developer'], progress: 0.34 },
+    { id: 'stack', name: 'Vue, Nuxt, React', words: ['vue', 'nuxt', 'react'], progress: 0.54 },
+    { id: 'roomie', name: 'Roomie', words: ['roomie'], progress: 0.74 },
+    { id: 'details', name: 'Details', words: ['details'], progress: 0.92 },
+  ]
 
-  function refreshWaypoints() {
+  let landmarks: TextLandmark[] = []
+  let startX = width * 0.2
+  let startY = 120
+
+  function refreshLandmarks() {
     if (!container) return
-    const rect = container.getBoundingClientRect()
+    const containerRect = container.getBoundingClientRect()
+    const allWordEls = Array.from(container.querySelectorAll<HTMLElement>('.about-bio .split-word'))
 
-    // Find the Download CV button inside the card
-    const btn = container.querySelector('a[download]') as HTMLElement | null
-    const previewBtn = container.querySelector('a[data-cursor-label="Preview"]') as HTMLElement | null
-
-    let btnX = PADDING + cardWidth * 0.85
-    let btnY = PADDING + cardHeight * 0.5
-
-    if (btn) {
-      const bRect = btn.getBoundingClientRect()
-      btnX = bRect.left - rect.left + bRect.width / 2 + PADDING
-      btnY = bRect.top - rect.top + bRect.height / 2 + PADDING
+    // Initial position at top of About Me (above the first bio paragraph)
+    const bioEl = container.querySelector('.about-bio') as HTMLElement | null
+    if (bioEl) {
+      const bioRect = bioEl.getBoundingClientRect()
+      startX = bioRect.left - containerRect.left + 50
+      startY = Math.max(60, bioRect.top - containerRect.top - 35)
     }
 
-    let prevX = PADDING + cardWidth * 0.65
-    let prevY = PADDING + cardHeight * 0.5
-    if (previewBtn) {
-      const pRect = previewBtn.getBoundingClientRect()
-      prevX = pRect.left - rect.left + pRect.width / 2 + PADDING
-      prevY = pRect.top - rect.top + pRect.height / 2 + PADDING
-    }
+    const list: TextLandmark[] = []
 
-    waypoints = [
-      // 1. Primary Highlight: Directly on the Download CV button!
-      {
-        x: btnX,
-        y: btnY - 8,
-        label: 'Download CV',
-        isPrimary: true,
-        stayDuration: 5.5, // spends longest time guarding the button
-      },
-      // 2. Card perimeter patrol: top-right corner
-      {
-        x: PADDING + cardWidth - 25,
-        y: PADDING + 12,
-        label: 'Top Border',
-        isPrimary: false,
-        stayDuration: 1.2,
-      },
-      // 3. Card perimeter: left badge (Curriculum Vitae title)
-      {
-        x: PADDING + 45,
-        y: PADDING + 20,
-        label: 'Curriculum Vitae Badge',
-        isPrimary: false,
-        stayDuration: 2.2,
-      },
-      // 4. Preview link
-      {
-        x: prevX,
-        y: prevY - 6,
-        label: 'Preview',
-        isPrimary: false,
-        stayDuration: 1.8,
-      },
-      // 5. Back to Download CV button
-      {
-        x: btnX - 10,
-        y: btnY + 4,
-        label: 'Download CV',
-        isPrimary: true,
-        stayDuration: 6.0,
-      },
-    ]
+    LANDMARK_CONFIGS.forEach((cfg) => {
+      // Find matching word elements
+      const matchedEls: HTMLElement[] = []
+      cfg.words.forEach((q) => {
+        const found = allWordEls.filter((w) =>
+          w.textContent?.trim().toLowerCase().includes(q.toLowerCase()),
+        )
+        found.forEach((el) => {
+          if (!matchedEls.includes(el)) matchedEls.push(el)
+        })
+      })
+
+      if (matchedEls.length > 0) {
+        let minLeft = Infinity
+        let maxRight = -Infinity
+        let minTop = Infinity
+        let maxBottom = -Infinity
+
+        matchedEls.forEach((el) => {
+          const r = el.getBoundingClientRect()
+          minLeft = Math.min(minLeft, r.left - containerRect.left)
+          maxRight = Math.max(maxRight, r.right - containerRect.left)
+          minTop = Math.min(minTop, r.top - containerRect.top)
+          maxBottom = Math.max(maxBottom, r.bottom - containerRect.top)
+        })
+
+        list.push({
+          id: cfg.id,
+          name: cfg.name,
+          words: cfg.words,
+          elements: matchedEls,
+          x: (minLeft + maxRight) / 2,
+          y: (minTop + maxBottom) / 2,
+          box: {
+            left: minLeft,
+            right: maxRight,
+            top: minTop,
+            bottom: maxBottom,
+            width: maxRight - minLeft,
+            height: maxBottom - minTop,
+          },
+          scrollTriggerProgress: cfg.progress,
+          isLanded: false,
+          landedAnimTime: 0,
+        })
+      }
+    })
+
+    landmarks = list
   }
 
-  updateSize()
+  setTimeout(refreshLandmarks, 300)
+  setTimeout(refreshLandmarks, 1200)
 
-  // Spider state
+  // ---------------------------------------------------------------------------
+  // Spider Initial State: Perched at the top of About Me
+  // ---------------------------------------------------------------------------
   const spider = {
-    x: PADDING + cardWidth * 0.8,
-    y: PADDING + cardHeight * 0.5,
+    x: startX,
+    y: startY,
     vx: 0,
     vy: 0,
-    angle: -Math.PI / 2,
+    angle: Math.PI / 2, // facing downwards toward the text
     activeGroup: 0 as 0 | 1,
-    state: 'touching' as 'crawling' | 'touching',
-    touchTimer: 4.5,
-    tapPhase: 0,
-    speed: 3.0,
-    jumpOffset: 0,
-    isHovered: false,
+    state: 'perched' as 'perched' | 'crawling' | 'landed',
+    landedTimer: 0,
+    speed: 3.2,
   }
 
-  // Initialize leg positions
+  // Initialize legs
   const legs: LegState[] = LEG_DEFS.map((def) => {
     const hipX = spider.x + Math.cos(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
     const hipY = spider.y + Math.sin(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
@@ -298,60 +322,41 @@ onMounted(() => {
     }
   })
 
-  const halos: PulseHalo[] = []
+  const shockwaves: Shockwave[] = []
   const sparkles: Sparkle[] = []
+  const silkWeb: WebPoint[] = [{ x: startX, y: startY }]
 
-  // Hover detection on the CV card
-  const onPointerEnter = () => {
-    spider.isHovered = true
-  }
-  const onPointerLeave = () => {
-    spider.isHovered = false
-  }
+  // ---------------------------------------------------------------------------
+  // Scroll Progress Calculation
+  // ---------------------------------------------------------------------------
+  function getScrollFraction(): number {
+    if (!container) return 0
+    const rect = container.getBoundingClientRect()
+    const windowH = window.innerHeight
 
-  // Click celebration: When the user clicks the Download CV button or card
-  const onCardClick = () => {
-    spider.jumpOffset = 18 // playful hop
+    // When top of #about enters upper view: 0.0
+    // When bottom of bio reaches middle of view: 1.0
+    const startY = windowH * 0.72
+    const endY = windowH * 0.22
+    const totalDist = rect.height * 0.65
 
-    // Burst of celebratory golden sparkles
-    for (let i = 0; i < 20; i++) {
-      const spAngle = Math.random() * Math.PI * 2
-      const spSpeed = 30 + Math.random() * 70
-      sparkles.push({
-        x: spider.x,
-        y: spider.y,
-        vx: Math.cos(spAngle) * spSpeed,
-        vy: Math.sin(spAngle) * spSpeed,
-        size: 1.8 + Math.random() * 2.2,
-        alpha: 1,
-        life: 0.8 + Math.random() * 0.6,
-      })
-    }
-
-    halos.push({
-      x: spider.x,
-      y: spider.y,
-      radius: 10,
-      maxRadius: 70,
-      alpha: 1,
-    })
+    const dist = startY - rect.top
+    return clamp(dist / Math.max(totalDist, 1), 0, 1)
   }
 
-  container.addEventListener('mouseenter', onPointerEnter)
-  container.addEventListener('mouseleave', onPointerLeave)
-  container.addEventListener('click', onCardClick)
-
-  // Pause when off screen
+  // Visibility Tracking
   let isVisibleOnScreen = true
   intersectionObserver = new IntersectionObserver(
     ([entry]) => {
       isVisibleOnScreen = entry.isIntersecting
     },
-    { threshold: 0.1 },
+    { threshold: 0.05 },
   )
   intersectionObserver.observe(container)
 
-  // Animation Loop
+  // ---------------------------------------------------------------------------
+  // Main Animation Loop
+  // ---------------------------------------------------------------------------
   let lastTime = performance.now()
 
   function loop(currentTime: number) {
@@ -361,91 +366,113 @@ onMounted(() => {
     const dt = Math.min((currentTime - lastTime) / 1000, 0.08)
     lastTime = currentTime
 
-    // Handle celebratory jump decay
-    if (spider.jumpOffset > 0) {
-      spider.jumpOffset = Math.max(0, spider.jumpOffset - dt * 45)
+    // 1. Determine Desired Destination based on Scroll Progress
+    const scrollProg = getScrollFraction()
+
+    let destX = startX
+    let destY = startY
+    let targetLandmark: TextLandmark | null = null
+
+    // Find landmark corresponding to scroll progress
+    if (landmarks.length > 0) {
+      if (scrollProg < landmarks[0].scrollTriggerProgress) {
+        // Still at top perch
+        destX = startX
+        destY = startY
+        targetLandmark = null
+      } else {
+        // Find highest landmark whose threshold has been passed
+        for (let i = landmarks.length - 1; i >= 0; i--) {
+          if (scrollProg >= landmarks[i].scrollTriggerProgress) {
+            targetLandmark = landmarks[i]
+            destX = targetLandmark.x
+            destY = targetLandmark.y
+            break
+          }
+        }
+      }
     }
 
-    // -------------------------------------------------------------------------
-    // Navigation along the CV Card
-    // -------------------------------------------------------------------------
-    const target = waypoints[currentWaypointIndex] || {
-      x: PADDING + cardWidth * 0.85,
-      y: PADDING + cardHeight * 0.5,
-      label: 'Download CV',
-      isPrimary: true,
-      stayDuration: 5.0,
-    }
+    // 2. Spider Navigation & Crawling
+    const dx = destX - spider.x
+    const dy = destY - spider.y
+    const distToDest = Math.hypot(dx, dy)
 
-    const dx = target.x - spider.x
-    const dy = target.y - spider.y
-    const distToTarget = Math.hypot(dx, dy)
-
-    if (spider.state === 'crawling') {
+    if (distToDest > 16) {
+      spider.state = 'crawling'
       const desiredAngle = Math.atan2(dy, dx)
       const angleDiff = normalizeAngle(desiredAngle - spider.angle)
-      spider.angle += angleDiff * Math.min(dt * 5.5, 1)
+      spider.angle += angleDiff * Math.min(dt * 6.5, 1)
 
       const moveSpeed = spider.speed * 60 * dt
-      if (distToTarget > 12) {
-        spider.vx = Math.cos(spider.angle) * moveSpeed
-        spider.vy = Math.sin(spider.angle) * moveSpeed
-        spider.x += spider.vx
-        spider.y += spider.vy
-      } else {
-        // Arrived at target
-        spider.state = 'touching'
-        spider.touchTimer = target.stayDuration
-        spider.tapPhase = 0
+      spider.vx = Math.cos(spider.angle) * moveSpeed
+      spider.vy = Math.sin(spider.angle) * moveSpeed
+      spider.x += spider.vx
+      spider.y += spider.vy
 
-        // If primary (Download button), emit attention halos!
-        if (target.isPrimary) {
-          halos.push({
-            x: spider.x,
-            y: spider.y,
+      currentStatus.value = targetLandmark
+        ? `Crawling to: ${targetLandmark.name}`
+        : 'Perched at top'
+    } else {
+      // Landed on the target!
+      spider.vx = 0
+      spider.vy = 0
+
+      if (targetLandmark) {
+        spider.state = 'landed'
+        currentStatus.value = `Landed on: ${targetLandmark.name}`
+
+        // Trigger landing effect on this landmark if not yet activated
+        if (!targetLandmark.isLanded) {
+          targetLandmark.isLanded = true
+          targetLandmark.landedAnimTime = 0
+
+          // Activate DOM elements (color highlight & glow)
+          targetLandmark.elements.forEach((el) => {
+            el.classList.add('crawler-landed')
+          })
+
+          // Trigger attention shockwave halo
+          shockwaves.push({
+            x: targetLandmark.x,
+            y: targetLandmark.y,
             radius: 8,
             maxRadius: 55,
             alpha: 1,
           })
+
+          // Emit golden cyber sparkles
+          for (let s = 0; s < 10; s++) {
+            const spAngle = Math.random() * Math.PI * 2
+            const spSpeed = 20 + Math.random() * 45
+            sparkles.push({
+              x: targetLandmark.x + (Math.random() - 0.5) * targetLandmark.box.width,
+              y: targetLandmark.box.bottom,
+              vx: Math.cos(spAngle) * spSpeed,
+              vy: -15 - Math.random() * 30,
+              size: 1.4 + Math.random() * 2,
+              alpha: 1,
+              life: 0.7 + Math.random() * 0.5,
+            })
+          }
+
+          // Add to silk web
+          silkWeb.push({ x: targetLandmark.x, y: targetLandmark.y })
         }
-      }
-    } else if (spider.state === 'touching') {
-      spider.touchTimer -= dt
-      spider.tapPhase += dt * (spider.isHovered ? 14 : 9)
-
-      // Emit periodic golden pulse while guarding the button
-      if (target.isPrimary && Math.random() < 0.04) {
-        halos.push({
-          x: target.x,
-          y: target.y + 6,
-          radius: 6,
-          maxRadius: 48,
-          alpha: 0.85,
-        })
-      }
-
-      // Gentle floating sparkles
-      if (target.isPrimary && Math.random() < 0.1) {
-        sparkles.push({
-          x: target.x + (Math.random() - 0.5) * 35,
-          y: target.y + (Math.random() - 0.5) * 20,
-          vx: (Math.random() - 0.5) * 12,
-          vy: -15 - Math.random() * 18,
-          size: 1.2 + Math.random() * 1.6,
-          alpha: 0.9,
-          life: 0.7 + Math.random() * 0.5,
-        })
-      }
-
-      if (spider.touchTimer <= 0) {
-        spider.state = 'crawling'
-        currentWaypointIndex = (currentWaypointIndex + 1) % waypoints.length
+      } else {
+        spider.state = 'perched'
+        currentStatus.value = 'Perched at top of bio'
       }
     }
 
-    // -------------------------------------------------------------------------
-    // Procedural Leg Stepping (Alternating Tetrapod Gait)
-    // -------------------------------------------------------------------------
+    // Advance landing animation timer
+    landmarks.forEach((lm) => {
+      if (lm.isLanded) {
+        lm.landedAnimTime += dt
+      }
+    })
+
+    // 3. Procedural Leg Stepping (Alternating Tetrapod Gait)
     const isMoving = spider.state === 'crawling'
     const stepDuration = 0.13
 
@@ -509,11 +536,6 @@ onMounted(() => {
           leg.currentFootX = lerp(leg.startFootX, leg.targetFootX, t)
           leg.currentFootY = lerp(leg.startFootY, leg.targetFootY, t) - lift
         }
-      } else if (spider.state === 'touching' && (i === 0 || i === 4)) {
-        // Front legs rhythmically tap on the CV button
-        const tapOffset = Math.sin(spider.tapPhase + (i === 0 ? 0 : Math.PI)) * 4
-        leg.currentFootX += Math.cos(spider.angle) * tapOffset * 0.12
-        leg.currentFootY += Math.sin(spider.angle) * tapOffset * 0.12
       }
     })
 
@@ -524,25 +546,66 @@ onMounted(() => {
     // -------------------------------------------------------------------------
     // Canvas Rendering
     // -------------------------------------------------------------------------
-    ctx.clearRect(0, 0, totalWidth, totalHeight)
+    ctx.clearRect(0, 0, width, height)
 
-    // 1. Attention Halos (Expanding from the CV button!)
-    for (let i = halos.length - 1; i >= 0; i--) {
-      const h = halos[i]
-      h.radius += dt * 40
-      h.alpha -= dt * 1.2
-      if (h.alpha <= 0) {
-        halos.splice(i, 1)
+    // 1. Digital Silk Web connecting visited landmarks
+    if (silkWeb.length > 1) {
+      ctx.beginPath()
+      ctx.moveTo(silkWeb[0].x, silkWeb[0].y)
+      for (let i = 1; i < silkWeb.length; i++) {
+        const xc = (silkWeb[i].x + silkWeb[i - 1].x) / 2
+        const yc = (silkWeb[i].y + silkWeb[i - 1].y) / 2
+        ctx.quadraticCurveTo(silkWeb[i - 1].x, silkWeb[i - 1].y, xc, yc)
+      }
+      ctx.lineTo(spider.x, spider.y)
+      ctx.strokeStyle = 'rgba(217, 160, 60, 0.25)'
+      ctx.lineWidth = 1.2
+      ctx.setLineDash([3, 3])
+      ctx.stroke()
+      ctx.setLineDash([])
+    }
+
+    // 2. Landing Effects on Activated Words (Laser Underlines + Halos)
+    landmarks.forEach((lm) => {
+      if (lm.isLanded) {
+        ctx.save()
+
+        // Glowing golden laser underline below the word
+        ctx.beginPath()
+        ctx.moveTo(lm.box.left, lm.box.bottom + 2)
+        ctx.lineTo(lm.box.right, lm.box.bottom + 2)
+        ctx.strokeStyle = 'rgba(217, 160, 60, 0.85)'
+        ctx.shadowColor = 'rgba(217, 160, 60, 0.6)'
+        ctx.shadowBlur = 8
+        ctx.lineWidth = 1.6
+        ctx.stroke()
+
+        // Tiny cyber tag indicator
+        ctx.font = 'bold 9px ui-monospace, monospace'
+        ctx.fillStyle = 'rgba(217, 160, 60, 0.9)'
+        ctx.fillText(`[${lm.name.toUpperCase()}]`, lm.box.left, lm.box.top - 4)
+
+        ctx.restore()
+      }
+    })
+
+    // 3. Shockwave Pulses
+    for (let i = shockwaves.length - 1; i >= 0; i--) {
+      const sw = shockwaves[i]
+      sw.radius += dt * 50
+      sw.alpha -= dt * 1.4
+      if (sw.alpha <= 0) {
+        shockwaves.splice(i, 1)
         continue
       }
       ctx.beginPath()
-      ctx.arc(h.x, h.y, h.radius, 0, Math.PI * 2)
-      ctx.strokeStyle = `rgba(217, 160, 60, ${h.alpha})`
+      ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2)
+      ctx.strokeStyle = `rgba(217, 160, 60, ${sw.alpha})`
       ctx.lineWidth = 1.6
       ctx.stroke()
     }
 
-    // 2. Floating Golden Sparks
+    // 4. Floating Golden Sparks
     for (let i = sparkles.length - 1; i >= 0; i--) {
       const sp = sparkles[i]
       sp.x += sp.vx * dt
@@ -554,33 +617,11 @@ onMounted(() => {
       }
       ctx.beginPath()
       ctx.arc(sp.x, sp.y, sp.size, 0, Math.PI * 2)
-      ctx.fillStyle = `rgba(255, 215, 120, ${sp.alpha})`
+      ctx.fillStyle = `rgba(255, 220, 130, ${sp.alpha})`
       ctx.fill()
     }
 
-    // 3. Attention Arrow pointing down directly to Download CV button
-    if (spider.state === 'touching' && target.isPrimary) {
-      const arrowX = target.x
-      const arrowY = target.y - 28 + Math.sin(currentTime * 0.009) * 3
-      ctx.save()
-      ctx.beginPath()
-      ctx.moveTo(arrowX, arrowY + 10)
-      ctx.lineTo(arrowX - 5, arrowY + 3)
-      ctx.lineTo(arrowX + 5, arrowY + 3)
-      ctx.closePath()
-      ctx.fillStyle = 'rgba(217, 160, 60, 1)'
-      ctx.shadowColor = 'rgba(217, 160, 60, 0.6)'
-      ctx.shadowBlur = 8
-      ctx.fill()
-
-      // Mini cyber tag
-      ctx.font = 'bold 9px ui-monospace, monospace'
-      ctx.fillStyle = 'rgba(217, 160, 60, 0.95)'
-      ctx.fillText('DOWNLOAD CV', arrowX - 34, arrowY - 2)
-      ctx.restore()
-    }
-
-    // 4. Spider Rendering (Shadow + Legs + Body + Feelers)
+    // 5. Spider Rendering (Shadow + Legs + Body + Glowing Core)
     ctx.save()
     ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'
     ctx.shadowBlur = 8
@@ -590,8 +631,7 @@ onMounted(() => {
     LEG_DEFS.forEach((def, i) => {
       const leg = legs[i]
       const hipX = spider.x + Math.cos(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
-      const hipY =
-        spider.y - spider.jumpOffset + Math.sin(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
+      const hipY = spider.y + Math.sin(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
 
       const ik = solveIK(
         hipX,
@@ -607,7 +647,7 @@ onMounted(() => {
       ctx.beginPath()
       ctx.moveTo(hipX, hipY)
       ctx.lineTo(ik.kneeX, ik.kneeY)
-      ctx.strokeStyle = 'rgba(217, 160, 60, 0.9)'
+      ctx.strokeStyle = 'rgba(217, 160, 60, 0.88)'
       ctx.lineWidth = 2.2
       ctx.lineCap = 'round'
       ctx.stroke()
@@ -634,47 +674,47 @@ onMounted(() => {
     })
 
     // Draw Body
-    ctx.translate(spider.x, spider.y - spider.jumpOffset)
+    ctx.translate(spider.x, spider.y)
     ctx.rotate(spider.angle)
 
     // Abdomen
     ctx.beginPath()
-    ctx.ellipse(-8, 0, 8.5, 6.5, 0, 0, Math.PI * 2)
+    ctx.ellipse(-8, 0, 9, 7, 0, 0, Math.PI * 2)
     ctx.fillStyle = 'rgb(24, 25, 30)'
     ctx.fill()
     ctx.strokeStyle = 'rgba(217, 160, 60, 0.8)'
-    ctx.lineWidth = 1.4
+    ctx.lineWidth = 1.5
     ctx.stroke()
 
     // Thorax
     ctx.beginPath()
-    ctx.ellipse(4, 0, 6.5, 5, 0, 0, Math.PI * 2)
+    ctx.ellipse(4, 0, 7, 5.5, 0, 0, Math.PI * 2)
     ctx.fillStyle = 'rgb(18, 19, 23)'
     ctx.fill()
     ctx.strokeStyle = 'rgba(217, 160, 60, 0.9)'
-    ctx.lineWidth = 1.4
+    ctx.lineWidth = 1.5
     ctx.stroke()
 
-    // Glowing core indicator
+    // Glowing core
     ctx.beginPath()
-    ctx.arc(-7, 0, 2, 0, Math.PI * 2)
+    ctx.arc(-7, 0, 2.2, 0, Math.PI * 2)
     ctx.fillStyle = 'rgba(217, 160, 60, 0.95)'
     ctx.fill()
 
     // Front feelers
     ctx.beginPath()
-    ctx.moveTo(9, -2.5)
-    ctx.lineTo(13, -4)
-    ctx.moveTo(9, 2.5)
-    ctx.lineTo(13, 4)
+    ctx.moveTo(10, -2.5)
+    ctx.lineTo(14, -4.5)
+    ctx.moveTo(10, 2.5)
+    ctx.lineTo(14, 4.5)
     ctx.strokeStyle = 'rgba(217, 160, 60, 0.8)'
     ctx.lineWidth = 1.2
     ctx.stroke()
 
-    // Glowing cyber eyes
+    // Bright cyber eyes
     ctx.beginPath()
-    ctx.arc(8, -2, 1.2, 0, Math.PI * 2)
-    ctx.arc(8, 2, 1.2, 0, Math.PI * 2)
+    ctx.arc(9, -2, 1.2, 0, Math.PI * 2)
+    ctx.arc(9, 2, 1.2, 0, Math.PI * 2)
     ctx.fillStyle = 'rgba(255, 235, 160, 1)'
     ctx.fill()
 
@@ -687,9 +727,10 @@ onMounted(() => {
     if (animFrameId) cancelAnimationFrame(animFrameId)
     resizeObserver?.disconnect()
     intersectionObserver?.disconnect()
-    container.removeEventListener('mouseenter', onPointerEnter)
-    container.removeEventListener('mouseleave', onPointerLeave)
-    container.removeEventListener('click', onCardClick)
+    // Clean up any added classes
+    landmarks.forEach((lm) => {
+      lm.elements.forEach((el) => el.classList.remove('crawler-landed'))
+    })
   })
 })
 
@@ -699,32 +740,36 @@ function togglePause() {
 </script>
 
 <template>
-  <div class="pointer-events-none absolute -inset-6 z-20 overflow-visible">
-    <!-- HTML5 Canvas layer scoped over CV card -->
-    <canvas ref="canvasRef" class="size-full overflow-visible" />
+  <div class="pointer-events-none absolute inset-0 z-15 overflow-hidden">
+    <!-- HTML5 Canvas layer -->
+    <canvas ref="canvasRef" class="size-full" />
 
-    <!-- Minimal HUD Badge directly on the card -->
+    <!-- Minimal HUD Badge in bottom corner -->
     <div
-      class="pointer-events-auto absolute -top-3 right-4 z-30 flex items-center gap-1.5 rounded-full border border-brand/40 bg-background/90 px-2.5 py-0.5 font-mono text-[10px] shadow-xs backdrop-blur-md transition-all hover:border-brand"
+      class="pointer-events-auto absolute right-4 bottom-4 z-20 flex items-center gap-2 rounded-full border border-border/60 bg-background/85 px-3 py-1.5 font-mono text-[11px] shadow-sm backdrop-blur-md transition-all hover:border-brand/50 sm:right-6 sm:bottom-6"
     >
-      <span class="relative flex size-1.5">
+      <span class="relative flex size-2">
         <span
           class="bg-brand absolute inline-flex size-full rounded-full opacity-75"
           :class="{ 'animate-ping': !isPaused }"
         />
-        <span class="bg-brand relative inline-flex size-1.5 rounded-full" />
+        <span class="bg-brand relative inline-flex size-2 rounded-full" />
       </span>
 
-      <span class="text-brand font-medium">Web Crawler · CV</span>
+      <span class="text-muted-foreground hidden sm:inline">Web Crawler:</span>
+      <span class="text-foreground font-medium">
+        {{ isPaused ? 'Paused' : currentStatus }}
+      </span>
 
+      <!-- Pause / Resume button -->
       <button
-        class="text-muted-foreground hover:text-foreground ml-0.5 flex size-4 items-center justify-center rounded-full hover:bg-muted/60 transition-colors"
+        class="text-muted-foreground hover:text-foreground ml-1 flex size-5 items-center justify-center rounded-full hover:bg-muted/60 transition-colors"
         :title="isPaused ? 'Resume crawler' : 'Pause crawler'"
         :aria-label="isPaused ? 'Resume crawler' : 'Pause crawler'"
         @click="togglePause"
       >
-        <Play v-if="isPaused" class="size-2.5 text-brand" />
-        <Pause v-else class="size-2.5" />
+        <Play v-if="isPaused" class="size-3 text-brand" />
+        <Pause v-else class="size-3" />
       </button>
     </div>
   </div>

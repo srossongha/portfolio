@@ -81,6 +81,9 @@ useGsapContext(root, () => {
 
 <template>
   <section id="about" ref="root" class="relative overflow-hidden py-28 sm:py-36 lg:py-44">
+    <!-- Scroll-driven Web Crawler Spider -->
+    <WebCrawler container-selector="#about" />
+
     <div class="mx-auto max-w-350 px-5 sm:px-8 lg:px-12">
       <SectionHeading
         index="01"
@@ -106,13 +109,10 @@ useGsapContext(root, () => {
             />
           </div>
 
-          <!-- CV Download card & actions with dedicated Web Crawler -->
+          <!-- CV Download card & actions -->
           <div
-            class="about-cv-card relative border-border/70 bg-card/40 hover:border-brand/40 mt-12 rounded-2xl border p-5 backdrop-blur-md transition-all sm:p-6"
+            class="about-cv-card border-border/70 bg-card/40 hover:border-brand/40 mt-12 rounded-2xl border p-5 backdrop-blur-md transition-all sm:p-6"
           >
-            <!-- Web Crawler animation focused exclusively on the CV download -->
-            <WebCrawler container-selector=".about-cv-card" />
-
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div class="flex items-center gap-3.5">
                 <div class="bg-brand/10 border-brand/20 text-brand flex size-11 shrink-0 items-center justify-center rounded-xl border">
@@ -237,3 +237,14 @@ useGsapContext(root, () => {
     </div>
   </section>
 </template>
+
+<style scoped>
+:deep(.split-word.crawler-landed) {
+  color: var(--brand) !important;
+  font-weight: 600;
+  text-shadow:
+    0 0 14px color-mix(in oklch, var(--brand) 65%, transparent),
+    0 0 28px color-mix(in oklch, var(--brand) 30%, transparent);
+  transition: color 0.4s ease, text-shadow 0.4s ease;
+}
+</style>
