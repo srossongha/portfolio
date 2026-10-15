@@ -49,18 +49,38 @@ function normalizeAngle(angle: number): number {
 }
 
 /**
- * High-precision 2-bone IK with outward normal constraint.
- * Guarantees that knees ALWAYS arc outward away from the body center cleanly.
+ * Coordinate transform helper: converts local spider coordinates to world coordinates.
+ */
+function localToWorld(
+  originX: number,
+  originY: number,
+  angle: number,
+  lx: number,
+  ly: number,
+) {
+  const cos = Math.cos(angle)
+  const sin = Math.sin(angle)
+  return {
+    x: originX + cos * lx - sin * ly,
+    y: originY + sin * lx + cos * ly,
+  }
+}
+
+/**
+ * High-precision 2-bone IK with anatomical front/back knee bias.
+ * Ensures front knees arch FORWARD towards the head, rear knees arch BACKWARD trailing the body,
+ * and all knees arch cleanly OUTWARD away from the spider.
  */
 function solveKnee(
-  spiderX: number,
-  spiderY: number,
+  spiderAngle: number,
   hipX: number,
   hipY: number,
   footX: number,
   footY: number,
   len1: number,
   len2: number,
+  side: 1 | -1,
+  fwdBias: number,
 ) {
   let dx = footX - hipX
   let dy = footY - hipY
@@ -84,16 +104,22 @@ function solveKnee(
   const basePointX = hipX + (dx / d) * kneeAlong
   const basePointY = hipY + (dy / d) * kneeAlong
 
-  // Normal vector perpendicular to limb
+  // Limb perpendicular unit normal
   const p1X = -dy / d
   const p1Y = dx / d
 
-  // Vector pointing outward away from spider center
-  const awayX = basePointX - spiderX
-  const awayY = basePointY - spiderY
+  // Forward unit vector in world space
+  const fx = Math.cos(spiderAngle)
+  const fy = Math.sin(spiderAngle)
+  // Right normal unit vector in world space
+  const rx = -Math.sin(spiderAngle)
+  const ry = Math.cos(spiderAngle)
 
-  // Pick perpendicular that points outward
-  const dot = p1X * awayX + p1Y * awayY
+  // Anatomical bias: front legs bend forward, rear legs bend backward, all bend outward
+  const biasX = fx * fwdBias + rx * (side * 0.7)
+  const biasY = fy * fwdBias + ry * (side * 0.7)
+
+  const dot = p1X * biasX + p1Y * biasY
   const nx = dot >= 0 ? p1X : -p1X
   const ny = dot >= 0 ? p1Y : -p1Y
 
@@ -108,13 +134,14 @@ function solveKnee(
 // -----------------------------------------------------------------------------
 
 interface LegDef {
+  id: string
   side: 1 | -1
-  hipAngleOffset: number
-  hipDist: number
-  restAngle: number
+  hip: [number, number]
+  rest: [number, number]
   reach: number
   len1: number
   len2: number
+  fwdBias: number
 }
 
 interface LegState {
@@ -186,19 +213,23 @@ interface Sparkle {
   life: number
 }
 
-// 8 Spindly, long arachnid legs that can stretch and reach across text lines (~75–84px)
+// 8 Anatomical arachnid legs:
+// - Front legs (L1, R1) bend & point FORWARD
+// - Mid legs (L2, R2, L3, R3) splay OUTWARD
+// - Rear legs (L4, R4) bend & point BACKWARD trailing the abdomen
+// - Long spindly reach (68–84px) that stretches cleanly across words
 const LEG_DEFS: LegDef[] = [
   // Left side (Front to Back)
-  { side: -1, hipAngleOffset: -0.82, hipDist: 11, restAngle: -0.92, reach: 76, len1: 36, len2: 44 },
-  { side: -1, hipAngleOffset: -0.28, hipDist: 10, restAngle: -0.42, reach: 68, len1: 32, len2: 40 },
-  { side: -1, hipAngleOffset: 0.28,  hipDist: 10, restAngle: 0.42,  reach: 68, len1: 32, len2: 40 },
-  { side: -1, hipAngleOffset: 0.82,  hipDist: 11, restAngle: 1.05,  reach: 80, len1: 38, len2: 46 },
+  { id: 'L1', side: -1, hip: [7, -5],   rest: [46, -58],  reach: 76, len1: 36, len2: 44, fwdBias: 0.85 },
+  { id: 'L2', side: -1, hip: [3, -7],   rest: [12, -72],  reach: 68, len1: 32, len2: 40, fwdBias: 0.35 },
+  { id: 'L3', side: -1, hip: [-3, -7],  rest: [-22, -68], reach: 70, len1: 32, len2: 40, fwdBias: -0.35 },
+  { id: 'L4', side: -1, hip: [-7, -5],  rest: [-58, -52], reach: 82, len1: 38, len2: 46, fwdBias: -0.85 },
 
   // Right side (Front to Back)
-  { side: 1, hipAngleOffset: 0.82,  hipDist: 11, restAngle: 0.92,  reach: 76, len1: 36, len2: 44 },
-  { side: 1, hipAngleOffset: 0.28,  hipDist: 10, restAngle: 0.42,  reach: 68, len1: 32, len2: 40 },
-  { side: 1, hipAngleOffset: -0.28, hipDist: 10, restAngle: -0.42, reach: 68, len1: 32, len2: 40 },
-  { side: 1, hipAngleOffset: -0.82, hipDist: 11, restAngle: -1.05, reach: 80, len1: 38, len2: 46 },
+  { id: 'R1', side: 1,  hip: [7, 5],    rest: [46, 58],   reach: 76, len1: 36, len2: 44, fwdBias: 0.85 },
+  { id: 'R2', side: 1,  hip: [3, 7],    rest: [12, 72],   reach: 68, len1: 32, len2: 40, fwdBias: 0.35 },
+  { id: 'R3', side: 1,  hip: [-3, 7],   rest: [-22, 68],  reach: 70, len1: 32, len2: 40, fwdBias: -0.35 },
+  { id: 'R4', side: 1,  hip: [-7, 5],   rest: [-58, 52],  reach: 82, len1: 38, len2: 46, fwdBias: -0.85 },
 ]
 
 // Stepping order for the one-by-one wave gait:
@@ -408,25 +439,33 @@ onMounted(() => {
     vx: 0,
     vy: 0,
     angle: Math.PI / 2, // Facing downward
-    speed: 108, // px / sec: smooth, continuous crawl
+    speed: 135, // px / sec: snappy, agile arachnid sprint
     pedipalpPhase: 0,
     idlePhase: 0,
   }
 
-  // Initialize legs
+  type SpiderMovementMode =
+    | 'scuttle'      // Fast agile dart forward
+    | 'micro_pause'  // Natural 0.2s pause between strides ("movement one stop like real spider")
+    | 'landing_legs' // Stopped directly on landmark word: legs place down one by one
+    | 'inspecting'   // Scanning word with active OCR highlight for ~1.8s
+
+  let movementMode: SpiderMovementMode = 'scuttle'
+  let movementTimer = 0.55
+  let landingLegStepIndex = 0
+  let inspectTimer = 0
+
+  // Initialize legs at anatomical rest positions
   const legs: LegState[] = LEG_DEFS.map((def) => {
-    const hipX = spider.x + Math.cos(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
-    const hipY = spider.y + Math.sin(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
-    const footAngle = spider.angle + def.restAngle * def.side
-    const footX = hipX + Math.cos(footAngle) * def.reach
-    const footY = hipY + Math.sin(footAngle) * def.reach
+    const hip = localToWorld(spider.x, spider.y, spider.angle, def.hip[0], def.hip[1])
+    const foot = localToWorld(spider.x, spider.y, spider.angle, def.rest[0], def.rest[1])
     return {
-      currentFootX: footX,
-      currentFootY: footY,
-      startFootX: footX,
-      startFootY: footY,
-      targetFootX: footX,
-      targetFootY: footY,
+      currentFootX: foot.x,
+      currentFootY: foot.y,
+      startFootX: foot.x,
+      startFootY: foot.y,
+      targetFootX: foot.x,
+      targetFootY: foot.y,
       stepProgress: 1,
       isStepping: false,
     }
@@ -456,76 +495,7 @@ onMounted(() => {
 
     const dt = Math.min((currentTime - lastTime) / 1000, 0.08)
     lastTime = currentTime
-    spider.pedipalpPhase += dt * 8
     spider.idlePhase += dt * 3
-
-    // 1. Continuous Non-Stop Waypoint Navigation
-    if (waypoints.length > 0) {
-      const targetWaypoint = waypoints[currentWaypointIndex]
-      const dx = targetWaypoint.x - spider.x
-      const dy = targetWaypoint.y - spider.y
-      const dist = Math.hypot(dx, dy)
-
-      // Smooth steering toward target
-      const targetAngle = Math.atan2(dy, dx)
-      const angleDiff = normalizeAngle(targetAngle - spider.angle)
-      spider.angle += angleDiff * Math.min(dt * 6.0, 1)
-
-      // Constant fluid velocity - NEVER STOPS
-      spider.vx = Math.cos(spider.angle) * spider.speed
-      spider.vy = Math.sin(spider.angle) * spider.speed
-
-      spider.x += spider.vx * dt
-      spider.y += spider.vy * dt
-
-      currentStatus.value = `Crawling to: ${targetWaypoint.name}`
-
-      // Check if passing over a landmark milestone
-      if (targetWaypoint.landmarkId && dist < 36) {
-        const lm = landmarks.find((l) => l.id === targetWaypoint.landmarkId)
-        if (lm && !lm.isLanded) {
-          lm.isLanded = true
-          lm.elements.forEach((el) => el.classList.add(lm.highlightClass))
-
-          shockwaves.push({
-            x: lm.x,
-            y: lm.y,
-            radius: 8,
-            maxRadius: 60,
-            color: lm.themeColor,
-            alpha: 1,
-          })
-
-          for (let s = 0; s < 10; s++) {
-            const spAngle = Math.random() * Math.PI * 2
-            const spSpeed = 20 + Math.random() * 45
-            sparkles.push({
-              x: lm.x + (Math.random() - 0.5) * lm.box.width,
-              y: lm.box.bottom,
-              vx: Math.cos(spAngle) * spSpeed,
-              vy: -15 - Math.random() * 30,
-              size: 1.4 + Math.random() * 1.8,
-              color: lm.themeColor,
-              alpha: 1,
-              life: 0.6 + Math.random() * 0.4,
-            })
-          }
-        }
-      }
-
-      // Smoothly advance to next waypoint when within 28px without stopping
-      if (dist < 28) {
-        currentWaypointIndex = (currentWaypointIndex + 1) % waypoints.length
-
-        // When completing a full loop back to perch, reset landmarks for fresh scan
-        if (currentWaypointIndex === 0) {
-          landmarks.forEach((lm) => {
-            lm.isLanded = false
-            lm.elements.forEach((el) => el.classList.remove(lm.highlightClass))
-          })
-        }
-      }
-    }
 
     // Determine currently active landmark theme color
     const nextLm = waypoints[currentWaypointIndex]?.landmarkId
@@ -533,69 +503,162 @@ onMounted(() => {
       : null
     const activeColor = nextLm ? nextLm.themeColor : '#38bdf8'
 
-    // 2. Realistic Continuous One-by-One Metachronal Stepping
-    const stepDuration = 0.085
+    // 1. Waypoint Navigation & Organic Movement Cadence ("movement one stop like real spider")
+    if (waypoints.length > 0) {
+      const targetWaypoint = waypoints[currentWaypointIndex]
+      const dx = targetWaypoint.x - spider.x
+      const dy = targetWaypoint.y - spider.y
+      const dist = Math.hypot(dx, dy)
 
-    // Check if any leg is currently in the air
-    let anyLegStepping = false
-    for (let i = 0; i < legs.length; i++) {
-      if (legs[i].isStepping) {
-        anyLegStepping = true
-        break
+      const targetAngle = Math.atan2(dy, dx)
+      const angleDiff = normalizeAngle(targetAngle - spider.angle)
+
+      if (movementMode === 'scuttle') {
+        spider.pedipalpPhase += dt * 8
+        spider.angle += angleDiff * Math.min(dt * 7.5, 1)
+        spider.vx = Math.cos(spider.angle) * spider.speed
+        spider.vy = Math.sin(spider.angle) * spider.speed
+        spider.x += spider.vx * dt
+        spider.y += spider.vy * dt
+
+        currentStatus.value = `Crawling to: ${targetWaypoint.name}`
+
+        // Check if approaching a landmark word that has not been scanned yet
+        if (targetWaypoint.landmarkId && dist < 26) {
+          const lm = landmarks.find((l) => l.id === targetWaypoint.landmarkId)
+          if (lm && !lm.isLanded) {
+            movementMode = 'landing_legs'
+            landingLegStepIndex = 0
+            spider.vx = 0
+            spider.vy = 0
+            spider.x = targetWaypoint.x
+            spider.y = targetWaypoint.y
+            currentStatus.value = `Landing on: ${targetWaypoint.name}`
+          }
+        }
+
+        // Timer for scuttle burst: after ~0.5s, take a natural micro-pause ("one stop")
+        if (movementMode === 'scuttle') {
+          movementTimer -= dt
+          if (movementTimer <= 0) {
+            movementMode = 'micro_pause'
+            movementTimer = 0.16 + Math.random() * 0.14
+            spider.vx = 0
+            spider.vy = 0
+          }
+
+          // Advance non-landmark waypoints or already-landed landmarks
+          if (dist < 26) {
+            currentWaypointIndex = (currentWaypointIndex + 1) % waypoints.length
+            if (currentWaypointIndex === 0) {
+              // Full circuit completed - reset landmarks for fresh scan on next lap
+              landmarks.forEach((lm) => {
+                lm.isLanded = false
+                lm.elements.forEach((el) => el.classList.remove(lm.highlightClass))
+              })
+            }
+          }
+        }
+      } else if (movementMode === 'micro_pause') {
+        // Real spider momentary freeze between strides
+        spider.vx = 0
+        spider.vy = 0
+        spider.pedipalpPhase += dt * 14 // Sensory feelers twitch alertly
+        movementTimer -= dt
+        if (movementTimer <= 0) {
+          movementMode = 'scuttle'
+          movementTimer = 0.45 + Math.random() * 0.25
+        }
+      } else if (movementMode === 'landing_legs') {
+        // Spider is parked directly on the word - legs place down ONE BY ONE
+        spider.vx = 0
+        spider.vy = 0
+        spider.pedipalpPhase += dt * 12
+
+        // Check if the current leg in the sequence needs to start its step
+        if (landingLegStepIndex < STEP_ORDER.length) {
+          const legIdx = STEP_ORDER[landingLegStepIndex]
+          const leg = legs[legIdx]
+          const def = LEG_DEFS[legIdx]
+
+          if (!leg.isStepping && leg.stepProgress >= 1) {
+            const ideal = localToWorld(spider.x, spider.y, spider.angle, def.rest[0], def.rest[1])
+            leg.startFootX = leg.currentFootX
+            leg.startFootY = leg.currentFootY
+            leg.targetFootX = ideal.x
+            leg.targetFootY = ideal.y
+            leg.stepProgress = 0
+            leg.isStepping = true
+          }
+        }
+
+        currentStatus.value = `Clamping: ${targetWaypoint.name} (${Math.min(landingLegStepIndex + 1, 8)}/8)`
+      } else if (movementMode === 'inspecting') {
+        spider.vx = 0
+        spider.vy = 0
+        spider.pedipalpPhase += dt * 10
+        inspectTimer -= dt
+        if (inspectTimer <= 0) {
+          // Inspection complete, scuttle to next milestone
+          currentWaypointIndex = (currentWaypointIndex + 1) % waypoints.length
+          movementMode = 'scuttle'
+          movementTimer = 0.5
+        }
       }
     }
 
-    // If all legs are planted, choose the single leg furthest from its ideal footprint
-    if (!anyLegStepping) {
-      let maxDist = 17 // Step trigger threshold
-      let chosenLegIdx = -1
+    // 2. Stepping Logic: One by One Placement & Continuous Ripple Wave
+    const stepDuration = 0.08
 
-      for (let s = 0; s < STEP_ORDER.length; s++) {
-        const i = STEP_ORDER[s]
-        const def = LEG_DEFS[i]
-        const leg = legs[i]
-
-        const hipX =
-          spider.x + Math.cos(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
-        const hipY =
-          spider.y + Math.sin(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
-        const idealAngle = spider.angle + def.restAngle * def.side
-
-        // Step leads in direction of velocity (legs stretch out and sketch smoothly!)
-        const leadX = spider.vx * 0.22
-        const leadY = spider.vy * 0.22
-        const idealX = hipX + Math.cos(idealAngle) * def.reach + leadX
-        const idealY = hipY + Math.sin(idealAngle) * def.reach + leadY
-
-        const dist = Math.hypot(idealX - leg.currentFootX, idealY - leg.currentFootY)
-        if (dist > maxDist) {
-          maxDist = dist
-          chosenLegIdx = i
+    if (movementMode === 'scuttle') {
+      let anyLegStepping = false
+      for (let i = 0; i < legs.length; i++) {
+        if (legs[i].isStepping) {
+          anyLegStepping = true
+          break
         }
       }
 
-      if (chosenLegIdx !== -1) {
-        const leg = legs[chosenLegIdx]
-        const def = LEG_DEFS[chosenLegIdx]
+      if (!anyLegStepping) {
+        let maxDist = 18 // Trigger distance threshold
+        let chosenLegIdx = -1
 
-        const hipX =
-          spider.x + Math.cos(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
-        const hipY =
-          spider.y + Math.sin(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
-        const idealAngle = spider.angle + def.restAngle * def.side
-        const leadX = spider.vx * 0.22
-        const leadY = spider.vy * 0.22
+        for (let s = 0; s < STEP_ORDER.length; s++) {
+          const i = STEP_ORDER[s]
+          const def = LEG_DEFS[i]
+          const leg = legs[i]
 
-        leg.startFootX = leg.currentFootX
-        leg.startFootY = leg.currentFootY
-        leg.targetFootX = hipX + Math.cos(idealAngle) * def.reach + leadX
-        leg.targetFootY = hipY + Math.sin(idealAngle) * def.reach + leadY
-        leg.stepProgress = 0
-        leg.isStepping = true
+          const ideal = localToWorld(spider.x, spider.y, spider.angle, def.rest[0], def.rest[1])
+          const leadX = spider.vx * 0.22
+          const leadY = spider.vy * 0.22
+          const idealX = ideal.x + leadX
+          const idealY = ideal.y + leadY
+
+          const dist = Math.hypot(idealX - leg.currentFootX, idealY - leg.currentFootY)
+          if (dist > maxDist) {
+            maxDist = dist
+            chosenLegIdx = i
+          }
+        }
+
+        if (chosenLegIdx !== -1) {
+          const leg = legs[chosenLegIdx]
+          const def = LEG_DEFS[chosenLegIdx]
+          const ideal = localToWorld(spider.x, spider.y, spider.angle, def.rest[0], def.rest[1])
+          const leadX = spider.vx * 0.22
+          const leadY = spider.vy * 0.22
+
+          leg.startFootX = leg.currentFootX
+          leg.startFootY = leg.currentFootY
+          leg.targetFootX = ideal.x + leadX
+          leg.targetFootY = ideal.y + leadY
+          leg.stepProgress = 0
+          leg.isStepping = true
+        }
       }
     }
 
-    // Animate the single stepping leg smoothly
+    // Animate the stepping leg(s)
     legs.forEach((leg) => {
       if (leg.isStepping) {
         leg.stepProgress += dt / stepDuration
@@ -610,14 +673,57 @@ onMounted(() => {
             x: leg.currentFootX,
             y: leg.currentFootY,
             radius: 1.5,
-            maxRadius: 6.5,
+            maxRadius: 7.0,
             color: activeColor,
-            alpha: 0.85,
+            alpha: 0.9,
           })
+
+          // If in landing_legs mode, advance to next leg!
+          if (movementMode === 'landing_legs') {
+            landingLegStepIndex++
+            if (landingLegStepIndex >= STEP_ORDER.length) {
+              // ALL 8 LEGS HAVE FIRMLY LANDED ON THE TEXT!
+              const targetWaypoint = waypoints[currentWaypointIndex]
+              if (targetWaypoint?.landmarkId) {
+                const lm = landmarks.find((l) => l.id === targetWaypoint.landmarkId)
+                if (lm) {
+                  lm.isLanded = true
+                  lm.elements.forEach((el) => el.classList.add(lm.highlightClass))
+
+                  shockwaves.push({
+                    x: lm.x,
+                    y: lm.y,
+                    radius: 8,
+                    maxRadius: 65,
+                    color: lm.themeColor,
+                    alpha: 1,
+                  })
+
+                  for (let s = 0; s < 12; s++) {
+                    const spAngle = Math.random() * Math.PI * 2
+                    const spSpeed = 20 + Math.random() * 45
+                    sparkles.push({
+                      x: lm.x + (Math.random() - 0.5) * lm.box.width,
+                      y: lm.box.bottom,
+                      vx: Math.cos(spAngle) * spSpeed,
+                      vy: -15 - Math.random() * 30,
+                      size: 1.4 + Math.random() * 1.8,
+                      color: lm.themeColor,
+                      alpha: 1,
+                      life: 0.6 + Math.random() * 0.4,
+                    })
+                  }
+                  currentStatus.value = `Scanned: ${lm.name} // OCR Active`
+                }
+              }
+
+              movementMode = 'inspecting'
+              inspectTimer = 1.8 // Dwell on the word
+            }
+          }
         } else {
           const t = leg.stepProgress
           const smoothT = t * t * (3 - 2 * t)
-          // Parabolic knee lift
           const lift = Math.sin(Math.PI * t) * 14
           leg.currentFootX = lerp(leg.startFootX, leg.targetFootX, smoothT)
           leg.currentFootY = lerp(leg.startFootY, leg.targetFootY, smoothT) - lift
@@ -679,8 +785,9 @@ onMounted(() => {
 
       // Active silk line to spider's spinneret
       const lastLanded = landedList[landedList.length - 1]
+      const spinneret = localToWorld(spider.x, spider.y, spider.angle, -11, 0)
       ctx.beginPath()
-      ctx.moveTo(spider.x - Math.cos(spider.angle) * 11, spider.y - Math.sin(spider.angle) * 11)
+      ctx.moveTo(spinneret.x, spinneret.y)
       ctx.lineTo(lastLanded.x, lastLanded.y)
       ctx.strokeStyle = lastLanded.themeColor
       ctx.lineWidth = 1.2
@@ -816,26 +923,26 @@ onMounted(() => {
     ctx.shadowBlur = 8
     ctx.shadowOffsetY = 3
 
-    // Render 8 Spindly, Stretchable Legs with Outward Knee Arcs
+    // Render 8 Spindly, Stretchable Legs with Outward Knee Arcs & Anatomical Front/Back Bias
     LEG_DEFS.forEach((def, i) => {
       const leg = legs[i]
-      const hipX = spider.x + Math.cos(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
-      const hipY = spider.y + Math.sin(spider.angle + def.hipAngleOffset * def.side) * def.hipDist
+      const hip = localToWorld(spider.x, spider.y, spider.angle, def.hip[0], def.hip[1])
 
       const ik = solveKnee(
-        spider.x,
-        spider.y,
-        hipX,
-        hipY,
+        spider.angle,
+        hip.x,
+        hip.y,
         leg.currentFootX,
         leg.currentFootY,
         def.len1,
         def.len2,
+        def.side,
+        def.fwdBias,
       )
 
       // Femur (upper limb segment) - clean metallic slate
       ctx.beginPath()
-      ctx.moveTo(hipX, hipY)
+      ctx.moveTo(hip.x, hip.y)
       ctx.lineTo(ik.kneeX, ik.kneeY)
       ctx.strokeStyle = 'rgba(203, 213, 225, 0.95)'
       ctx.lineWidth = 2.0
