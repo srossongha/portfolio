@@ -359,12 +359,59 @@ onMounted(() => {
   let height = container.clientHeight
   let dpr = Math.min(window.devicePixelRatio || 1, 2)
 
+  interface TextWordTarget {
+    left: number
+    right: number
+    top: number
+    bottom: number
+    width: number
+    height: number
+  }
+
+  let textWords: TextWordTarget[] = []
   let landmarks: TextLandmark[] = []
   let waypoints: Waypoint[] = []
   let currentWaypointIndex = 0
 
   let startX = width * 0.22
   let startY = 85
+
+  /**
+   * Snaps a foot target directly onto random letters of nearby text words.
+   * If a text word is within reachRadius, the foot lands directly on a character!
+   */
+  function snapFootToText(
+    idealX: number,
+    idealY: number,
+    words: TextWordTarget[],
+    reachRadius = 38,
+  ): { x: number; y: number } {
+    if (words.length === 0) return { x: idealX, y: idealY }
+
+    let bestWord: TextWordTarget | null = null
+    let minDist = reachRadius
+
+    for (let i = 0; i < words.length; i++) {
+      const w = words[i]
+      const cx = Math.max(w.left, Math.min(w.right, idealX))
+      const cy = Math.max(w.top, Math.min(w.bottom, idealY))
+      const d = Math.hypot(cx - idealX, cy - idealY)
+      if (d < minDist) {
+        minDist = d
+        bestWord = w
+      }
+    }
+
+    if (bestWord) {
+      const paddingX = Math.min(3, bestWord.width * 0.15)
+      const paddingY = Math.min(2, bestWord.height * 0.15)
+      const footX = bestWord.left + paddingX + Math.random() * Math.max(1, bestWord.width - paddingX * 2)
+      const footY = bestWord.top + paddingY + Math.random() * Math.max(1, bestWord.height - paddingY * 2)
+      return { x: footX, y: footY }
+    }
+
+    return { x: idealX, y: idealY }
+  }
 
   function updateSize() {
     if (!container || !canvas || !ctx) return
@@ -403,6 +450,23 @@ onMounted(() => {
     const containerRect = container.getBoundingClientRect()
     const allWordEls = Array.from(container.querySelectorAll<HTMLElement>('.about-bio .split-word'))
     if (allWordEls.length === 0) return
+
+    // Capture bounding boxes of all individual words across the bio text
+    textWords = allWordEls.map((el) => {
+      const r = el.getBoundingClientRect()
+      const left = r.left - containerRect.left
+      const right = r.right - containerRect.left
+      const top = r.top - containerRect.top
+      const bottom = r.bottom - containerRect.top
+      return {
+        left,
+        right,
+        top,
+        bottom,
+        width: right - left,
+        height: bottom - top,
+      }
+    })
 
     const bioEl = container.querySelector('.about-bio') as HTMLElement | null
     let bioLeft = width * 0.15
@@ -497,6 +561,7 @@ onMounted(() => {
     speed: 180, // px / sec: brisk, agile arachnid sprint (faster!)
     pedipalpPhase: 0,
     idlePhase: 0,
+    sCurvePhase: 0,
   }
 
   type SpiderMovementMode =
@@ -557,19 +622,31 @@ onMounted(() => {
       : null
     const activeColor = nextLm ? nextLm.themeColor : '#38bdf8'
 
-    // 1. Waypoint Navigation & Organic Movement Cadence ("movement one stop like real spider")
+    // 1. Waypoint Navigation & Organic Movement Cadence (S-Curve Weaving)
     if (waypoints.length > 0) {
       const targetWaypoint = waypoints[currentWaypointIndex]
       const dx = targetWaypoint.x - spider.x
       const dy = targetWaypoint.y - spider.y
       const dist = Math.hypot(dx, dy)
 
-      const targetAngle = Math.atan2(dy, dx)
-      const angleDiff = normalizeAngle(targetAngle - spider.angle)
-
       if (movementMode === 'scuttle') {
+        spider.sCurvePhase += dt * 4.2
         spider.pedipalpPhase += dt * 10
-        spider.angle += angleDiff * Math.min(dt * 9.0, 1)
+
+        // Perpendicular normal vector for lateral S-curve weaving
+        const invDist = 1 / (dist || 1)
+        const nx = -dy * invDist
+        const ny = dx * invDist
+
+        // S-curve wave amplitude (smoothly tapers to 0 when nearing destination)
+        const waveAmp = Math.sin(spider.sCurvePhase) * Math.min(dist * 0.45, 34)
+        const virtualTargetX = targetWaypoint.x + nx * waveAmp
+        const virtualTargetY = targetWaypoint.y + ny * waveAmp
+
+        const targetAngle = Math.atan2(virtualTargetY - spider.y, virtualTargetX - spider.x)
+        const angleDiff = normalizeAngle(targetAngle - spider.angle)
+
+        spider.angle += angleDiff * Math.min(dt * 8.5, 1)
         spider.vx = Math.cos(spider.angle) * spider.speed
         spider.vy = Math.sin(spider.angle) * spider.speed
         spider.x += spider.vx * dt
@@ -624,7 +701,7 @@ onMounted(() => {
           movementTimer = 0.35 + Math.random() * 0.22
         }
       } else if (movementMode === 'landing_legs') {
-        // Spider is parked directly on the word - legs place down ONE BY ONE
+        // Spider is parked directly on the word - legs place down ONE BY ONE onto text letters!
         spider.vx = 0
         spider.vy = 0
         spider.pedipalpPhase += dt * 14
@@ -637,10 +714,12 @@ onMounted(() => {
 
           if (!leg.isStepping && leg.stepProgress >= 1) {
             const ideal = localToWorld(spider.x, spider.y, spider.angle, def.rest[0], def.rest[1])
+            // Snap foot directly onto text letters!
+            const snapped = snapFootToText(ideal.x, ideal.y, textWords, 38)
             leg.startFootX = leg.currentFootX
             leg.startFootY = leg.currentFootY
-            leg.targetFootX = ideal.x
-            leg.targetFootY = ideal.y
+            leg.targetFootX = snapped.x
+            leg.targetFootY = snapped.y
             leg.stepProgress = 0
             leg.isStepping = true
           }
@@ -702,11 +781,16 @@ onMounted(() => {
           const ideal = localToWorld(spider.x, spider.y, spider.angle, def.rest[0], def.rest[1])
           const leadX = spider.vx * 0.18
           const leadY = spider.vy * 0.18
+          const rawTargetX = ideal.x + leadX
+          const rawTargetY = ideal.y + leadY
+
+          // Snap foot directly onto letters of nearby words!
+          const snapped = snapFootToText(rawTargetX, rawTargetY, textWords, 38)
 
           leg.startFootX = leg.currentFootX
           leg.startFootY = leg.currentFootY
-          leg.targetFootX = ideal.x + leadX
-          leg.targetFootY = ideal.y + leadY
+          leg.targetFootX = snapped.x
+          leg.targetFootY = snapped.y
           leg.stepProgress = 0
           leg.isStepping = true
         }
